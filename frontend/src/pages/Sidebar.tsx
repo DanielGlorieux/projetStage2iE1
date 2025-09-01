@@ -173,11 +173,11 @@ export function Sidebar({
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
       case "student":
-        return "Étudiant boursier LED";
+        return "Étudiant";
       case "led_team":
-        return "Équipe LED";
+        return "Admin";
       case "supervisor":
-        return "Enseignant/Encadrant";
+        return "Équipe CIE";
       default:
         return "Utilisateur";
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+/*import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -650,7 +650,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* En-tête avec statistiques */}
+      */ {
+  /* En-tête avec statistiques */
+}
+/*
       <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
@@ -664,7 +667,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
             Digital
           </p>
 
-          {/* Stats rapides */}
+          */ {
+  /* Stats rapides */
+}
+/*
           <div className="flex flex-wrap gap-4 mt-4">
             <div className="bg-blue-50 px-3 py-2 rounded-lg">
               <span className="text-blue-600 font-semibold">{stats.total}</span>
@@ -705,7 +711,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
         </Button>
       </div>
 
-      {/* Alertes */}
+      */ {
+  /* Alertes */
+}
+/*
       {error && (
         <Alert variant="destructive" className="border-red-200 bg-red-50">
           <AlertTriangle className="h-4 w-4" />
@@ -739,7 +748,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
         </TabsList>
 
         <TabsContent value="activities" className="space-y-6">
-          {/* Filtres et recherche */}
+          */ {
+  /* Filtres et recherche */
+}
+/*
           <Card className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="relative">
@@ -833,7 +845,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
             </div>
           </Card>
 
-          {/* Liste des activités */}
+          */ {
+  /* Liste des activités */
+}
+/*
           {filteredActivities.length === 0 ? (
             <Card className="text-center py-16">
               <CardContent>
@@ -958,7 +973,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                         {activity.description}
                       </p>
 
-                      {/* Progress bar pour les activités en cours */}
+                      */ {
+  /* Progress bar pour les activités en cours */
+}
+/*
                       {activity.status === "in_progress" && (
                         <div className="space-y-2">
                           <div className="flex justify-between text-sm">
@@ -969,7 +987,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                         </div>
                       )}
 
-                      {/* Score pour les activités évaluées */}
+                      */ {
+  /* Score pour les activités évaluées */
+}
+/*
                       {activity.score && activity.maxScore && (
                         <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
                           <Star className="w-4 h-4 text-yellow-500" />
@@ -979,7 +1000,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                         </div>
                       )}
 
-                      {/* Dates et délais */}
+                      */ {
+  /* Dates et délais */
+}
+/*
                       <div className="flex items-center justify-between text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <CalendarIcon className="w-4 h-4" />
@@ -1017,7 +1041,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                           )}
                       </div>
 
-                      {/* Tags */}
+                      */ {
+  /* Tags */
+}
+/*
                       {activity.tags && activity.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {activity.tags.slice(0, 3).map((tag, index) => (
@@ -1037,7 +1064,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                         </div>
                       )}
 
-                      {/* Collaborateurs */}
+                      */ {
+  /* Collaborateurs */
+}
+/*
                       {activity.collaborators &&
                         activity.collaborators.length > 0 && (
                           <div className="flex items-center gap-2">
@@ -1069,7 +1099,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
           )}
         </TabsContent>
 
-        {/* Onglet Statistiques */}
+        */ {
+  /* Onglet Statistiques */
+}
+/*
         <TabsContent value="statistics" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             <Card>
@@ -1158,7 +1191,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
             </Card>
           </div>
 
-          {/* Répartition par type */}
+          */ {
+  /* Répartition par type */
+}
+/*
           <Card>
             <CardHeader>
               <CardTitle>Répartition des Activités</CardTitle>
@@ -1201,7 +1237,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
           </Card>
         </TabsContent>
 
-        {/* Onglet Planning */}
+        */ {
+  /* Onglet Planning */
+}
+/*
         <TabsContent value="calendar" className="space-y-6">
           <Card>
             <CardHeader>
@@ -1308,7 +1347,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
         </TabsContent>
       </Tabs>
 
-      {/* Dialog de visualisation d'activité */}
+      */ {
+  /* Dialog de visualisation d'activité */
+}
+/*
       <Dialog
         open={!!viewingActivity}
         onOpenChange={() => setViewingActivity(null)}
@@ -1336,7 +1378,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
 
           {viewingActivity && (
             <div className="space-y-6">
-              {/* Informations générales */}
+              */ {
+  /* Informations générales */
+}
+/*
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">
@@ -1408,7 +1453,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                 </div>
               </div>
 
-              {/* Description */}
+              */ {
+  /* Description */
+}
+/*
               <div>
                 <Label className="text-sm font-medium text-muted-foreground">
                   Description
@@ -1418,7 +1466,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                 </p>
               </div>
 
-              {/* Objectifs */}
+              */ {
+  /* Objectifs */
+}
+/*
               {viewingActivity.objectives.length > 0 && (
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">
@@ -1438,7 +1489,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                 </div>
               )}
 
-              {/* Résultats */}
+              */ {
+  /* Résultats */
+}
+/*
               {viewingActivity.outcomes.length > 0 && (
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">
@@ -1458,7 +1512,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                 </div>
               )}
 
-              {/* Défis */}
+              */ {
+  /* Défis */
+}
+/*
               {viewingActivity.challenges.length > 0 && (
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">
@@ -1478,7 +1535,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                 </div>
               )}
 
-              {/* Apprentissages */}
+              */ {
+  /* Apprentissages */
+}
+/*
               {viewingActivity.learnings.length > 0 && (
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">
@@ -1498,7 +1558,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                 </div>
               )}
 
-              {/* Temps investi */}
+              */ {
+  /* Temps investi */
+}
+/*
               {(viewingActivity.estimatedHours ||
                 viewingActivity.actualHours) && (
                 <div className="grid grid-cols-2 gap-4">
@@ -1525,7 +1588,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                 </div>
               )}
 
-              {/* Évaluation */}
+              */ {
+  /* Évaluation */
+}
+/*
               {viewingActivity.score && viewingActivity.maxScore && (
                 <div className="p-4 bg-green-50 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
@@ -1555,7 +1621,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                 </div>
               )}
 
-              {/* Collaborateurs */}
+              */ {
+  /* Collaborateurs */
+}
+/*
               {viewingActivity.collaborators &&
                 viewingActivity.collaborators.length > 0 && (
                   <div>
@@ -1579,7 +1648,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                   </div>
                 )}
 
-              {/* Tags */}
+              */ {
+  /* Tags */
+}
+/*
               {viewingActivity.tags && viewingActivity.tags.length > 0 && (
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">
@@ -1616,7 +1688,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog de formulaire */}
+      */ {
+  /* Dialog de formulaire */
+}
+/*
       <Dialog
         open={showForm}
         onOpenChange={() => {
@@ -1642,7 +1717,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Informations de base */}
+            */ {
+  /* Informations de base */
+}
+/*
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <Label htmlFor="title">Titre de l'activité *</Label>
@@ -1793,7 +1871,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
               </div>
             </div>
 
-            {/* Section avancée (optionnelle) */}
+            */ {
+  /* Section avancée (optionnelle) */
+}
+/*
             <div className="space-y-4">
               <Button
                 type="button"
@@ -1816,7 +1897,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
 
               {showAdvancedForm && (
                 <div className="space-y-6 p-4 border rounded-lg bg-gray-50">
-                  {/* Temps estimé et réel */}
+                  */ {
+  /* Temps estimé et réel */
+}
+/*
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="estimatedHours">
@@ -1856,7 +1940,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                     </div>
                   </div>
 
-                  {/* Collaborateurs */}
+                  */ {
+  /* Collaborateurs */
+}
+/*
                   <div>
                     <Label>Collaborateurs</Label>
                     <div className="space-y-2 mt-2">
@@ -1901,7 +1988,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                     </div>
                   </div>
 
-                  {/* Objectifs */}
+                  */ {
+  /* Objectifs */
+}
+/*
                   <div>
                     <Label>Objectifs *</Label>
                     <div className="space-y-2 mt-2">
@@ -1947,7 +2037,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                     </div>
                   </div>
 
-                  {/* Résultats obtenus */}
+                  */ {
+  /* Résultats obtenus */
+}
+/*
                   <div>
                     <Label>Résultats obtenus</Label>
                     <div className="space-y-2 mt-2">
@@ -1987,7 +2080,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                     </div>
                   </div>
 
-                  {/* Défis rencontrés */}
+                  */ {
+  /* Défis rencontrés */
+}
+/*
                   <div>
                     <Label>Défis rencontrés</Label>
                     <div className="space-y-2 mt-2">
@@ -2031,7 +2127,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                     </div>
                   </div>
 
-                  {/* Apprentissages clés */}
+                  */ {
+  /* Apprentissages clés */
+}
+/*
                   <div>
                     <Label>Apprentissages clés</Label>
                     <div className="space-y-2 mt-2">
@@ -2074,7 +2173,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
               )}
             </div>
 
-            {/* Upload de documents */}
+            */ {
+  /* Upload de documents */
+}
+/*
             <div>
               <Label>Documents justificatifs</Label>
               <div className="mt-2 space-y-4">
@@ -2108,7 +2210,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                   </p>
                 </div>
 
-                {/* Liste des fichiers */}
+                */ {
+  /* Liste des fichiers */
+}
+/*
                 {formData.documents.length > 0 && (
                   <div className="space-y-2">
                     <Label className="text-sm">Fichiers sélectionnés :</Label>
@@ -2142,7 +2247,10 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
               </div>
             </div>
 
-            {/* Statut */}
+            */ {
+  /* Statut */
+}
+/*
             <div>
               <Label htmlFor="status">Statut de l'activité</Label>
               <Select
@@ -2169,7 +2277,9 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
               </Select>
             </div>
 
-            {/* Tags (suggestions automatiques) */}
+            */ {
+  /* Tags (suggestions automatiques) */
+} /*
             <div>
               <Label>Tags (optionnel)</Label>
               <div className="mt-2 space-y-2">
@@ -2258,4 +2368,590 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
       </Dialog>
     </div>
   );
+}*/
+
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Badge } from "../components/ui/badge";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Progress } from "../components/ui/progress";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
+import { Calendar } from "../components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../components/ui/popover";
+import { Separator } from "../components/ui/separator";
+import { Checkbox } from "../components/ui/checkbox";
+import {
+  Plus,
+  Upload,
+  Calendar as CalendarIcon,
+  FileText,
+  Briefcase,
+  Lightbulb,
+  Monitor,
+  Edit,
+  Trash2,
+  Eye,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  Save,
+  X,
+  PaperclipIcon,
+  Download,
+  Filter,
+  Search,
+  Award,
+  TrendingUp,
+  Target,
+  Users,
+  Building,
+  Star,
+  MessageSquare,
+  Send,
+  RefreshCw,
+} from "lucide-react";
+import { format, isAfter, isBefore, differenceInDays } from "date-fns";
+import { fr } from "date-fns/locale";
+import { activityService, Activity } from "../services/activityService";
+//import { useApi } from "../hooks/useApi";
+import { useApi } from "../hooks/useApi";
+
+const [formData, setFormData] = useState({
+  title: "",
+  type: "" as "entrepreneuriat" | "leadership" | "digital" | "",
+  description: "",
+  startDate: undefined as Date | undefined,
+  endDate: undefined as Date | undefined,
+  status: "planned" as Activity["status"],
+  documents: [] as File[],
+  priority: "medium" as "low" | "medium" | "high",
+  estimatedHours: 0,
+  actualHours: 0,
+  collaborators: [] as string[],
+  objectives: [""] as string[],
+  outcomes: [""] as string[],
+  challenges: [""] as string[],
+  learnings: [""] as string[],
+  tags: [] as string[],
+});
+
+interface ActivitySubmissionProps {
+  userRole: string;
+}
+
+export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
+  const {
+    data: activities,
+    loading,
+    error: apiError,
+    refetch,
+  } = useApi(() => activityService.getActivities(), []);
+
+  const [showForm, setShowForm] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  // État pour les fichiers sélectionnés
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+
+  // Gestion de la sélection de fichiers améliorée
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      validateAndAddFiles(newFiles);
+    }
+  };
+
+  const validateAndAddFiles = (files: File[]) => {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "image/jpeg",
+      "image/png",
+      "video/mp4",
+      "video/avi",
+    ];
+
+    const validFiles = files.filter((file) => {
+      if (file.size > maxSize) {
+        setError(`Le fichier ${file.name} dépasse la taille maximale de 10MB`);
+        return false;
+      }
+      if (!allowedTypes.includes(file.type)) {
+        setError(`Le type de fichier ${file.name} n'est pas autorisé`);
+        return false;
+      }
+      return true;
+    });
+
+    setSelectedFiles((prev) => [...prev, ...validFiles]);
+    setError(""); // Clear error if files are valid
+  };
+
+  // Gestion du drag & drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+
+    if (e.dataTransfer.files) {
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      validateAndAddFiles(droppedFiles);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Fonction de téléchargement de document
+  const handleDownloadDocument = async (
+    documentUrl: string,
+    filename: string
+  ) => {
+    const result = await activityService.downloadDocument(
+      documentUrl,
+      filename
+    );
+    if (!result.success) {
+      setError(result.error || "Erreur de téléchargement");
+    }
+  };
+
+  // Soumission avec upload de fichiers
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    // Validation des champs obligatoires
+    if (
+      !formData.title ||
+      !formData.type ||
+      !formData.description ||
+      !formData.startDate ||
+      !formData.endDate
+    ) {
+      setError("Veuillez remplir tous les champs obligatoires");
+      setIsLoading(false);
+      return;
+    }
+
+    if (formData.description.length < 100) {
+      setError("La description doit contenir au moins 100 caractères");
+      setIsLoading(false);
+      return;
+    }
+
+    if (formData.startDate >= formData.endDate) {
+      setError("La date de fin doit être postérieure à la date de début");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const activityData = {
+        title: formData.title,
+        type: formData.type as "entrepreneuriat" | "leadership" | "digital",
+        description: formData.description,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        status: formData.status,
+        priority: formData.priority,
+        estimatedHours: formData.estimatedHours,
+        actualHours: formData.actualHours,
+        collaborators: formData.collaborators.filter((c) => c.trim()),
+        objectives: formData.objectives.filter((obj) => obj.trim()),
+        outcomes: formData.outcomes.filter((out) => out.trim()),
+        challenges: formData.challenges.filter((ch) => ch.trim()),
+        learnings: formData.learnings.filter((l) => l.trim()),
+        tags: formData.tags,
+        progress:
+          formData.status === "completed"
+            ? 100
+            : formData.status === "in_progress"
+            ? 50
+            : 0,
+        documents: [], // Sera mis à jour après upload
+      };
+
+      let response;
+      if (editingActivity) {
+        response = await activityService.updateActivity(
+          editingActivity.id,
+          activityData
+        );
+      } else {
+        response = await activityService.createActivity(activityData);
+      }
+
+      if (response.success && response.data) {
+        // Upload des fichiers si présents
+        if (selectedFiles.length > 0) {
+          const uploadResponse = await activityService.uploadDocuments(
+            response.data.id,
+            selectedFiles
+          );
+
+          if (!uploadResponse.success) {
+            setError("Activité créée mais erreur d'upload des fichiers");
+          }
+        }
+
+        setSuccess(
+          editingActivity
+            ? "Activité modifiée avec succès ! 🎉"
+            : "Activité soumise avec succès ! Votre progression LED a été mise à jour. 🚀"
+        );
+
+        resetForm();
+        refetch(); // Recharger les données
+
+        setTimeout(() => setSuccess(""), 5000);
+      } else {
+        setError(response.error || "Erreur lors de la sauvegarde");
+      }
+    } catch (error) {
+      setError("Erreur de connexion au serveur");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: "",
+      type: "",
+      description: "",
+      startDate: undefined,
+      endDate: undefined,
+      status: "planned",
+      documents: [],
+      priority: "medium",
+      estimatedHours: 0,
+      actualHours: 0,
+      collaborators: [],
+      objectives: [""],
+      outcomes: [""],
+      challenges: [""],
+      learnings: [""],
+      tags: [],
+    });
+    setSelectedFiles([]);
+    setShowForm(false);
+    setEditingActivity(null);
+    //setShowAdvancedForm(false);
+  };
+
+  // Fonction d'export des données
+  const exportActivities = async (format: "csv" | "excel" | "pdf") => {
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/activities/export`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ format, activities: activities || [] }),
+        }
+      );
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `mes-activites-led.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        setError("Erreur lors de l'export");
+      }
+    } catch (error) {
+      setError("Erreur lors de l'export");
+    }
+  };
+
+  // Gestion du loading et des erreurs
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">
+            Chargement de vos activités...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (apiError) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Erreur de chargement des données: {apiError}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Header avec boutons d'export */}
+      <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-xl flex items-center justify-center">
+              <Target className="w-6 h-6 text-white" />
+            </div>
+            Mes Réalisations
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            Gérez et valorisez vos projets en Leadership, Entrepreneuriat &
+            Digital
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => exportActivities("csv")}>
+            <Download className="w-4 h-4 mr-2" />
+            CSV
+          </Button>
+          <Button variant="outline" onClick={() => exportActivities("excel")}>
+            <Download className="w-4 h-4 mr-2" />
+            Excel
+          </Button>
+          <Button variant="outline" onClick={() => exportActivities("pdf")}>
+            <Download className="w-4 h-4 mr-2" />
+            PDF
+          </Button>
+          <Button
+            onClick={() => setShowForm(true)}
+            className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white shadow-lg"
+            size="lg"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nouvelle Réalisation
+          </Button>
+        </div>
+      </div>
+
+      {/* ...existing error/success alerts... */}
+
+      {error && (
+        <Alert variant="destructive" className="border-red-200 bg-red-50">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {success && (
+        <Alert className="border-green-200 bg-green-50">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            {success}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Section de upload de fichiers améliorée dans le formulaire */}
+      <div>
+        <Label>Documents justificatifs</Label>
+        <div className="mt-2 space-y-4">
+          <div
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+              dragOver
+                ? "border-blue-400 bg-blue-50"
+                : "border-gray-300 hover:border-gray-400"
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600">
+                Glissez-déposez vos fichiers ici ou
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isLoading}
+                onClick={() => document.getElementById("file-upload")?.click()}
+              >
+                <PaperclipIcon className="w-4 h-4 mr-2" />
+                Parcourir
+              </Button>
+              <input
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,.mp4,.avi"
+                className="hidden"
+                id="file-upload"
+                disabled={isLoading}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              PDF, DOC, DOCX, PPT, PPTX, JPG, PNG, MP4, AVI - Max 10MB par
+              fichier
+            </p>
+          </div>
+
+          {selectedFiles.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm">Fichiers sélectionnés :</Label>
+              <div className="max-h-40 overflow-y-auto space-y-2">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-4 h-4 text-blue-500" />
+                      <div>
+                        <p className="text-sm font-medium truncate max-w-xs">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {(file.size / (1024 * 1024)).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                      disabled={isLoading}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ...existing JSX for activities display with download buttons... */}
+
+      {/* Dans l'affichage des activités, ajouter des boutons de téléchargement */}
+      {activities && activities.length > 0 && (
+        <div className="space-y-4">
+          {activities.map((activity) => (
+            <Card
+              key={activity.id}
+              className="hover:shadow-lg transition-shadow"
+            >
+              <CardContent className="p-6">
+                {/* ...existing activity card content... */}
+
+                {/* Section documents avec téléchargement */}
+                {activity.documents && activity.documents.length > 0 && (
+                  <div className="mt-4">
+                    <Label className="text-sm font-medium text-muted-foreground">
+                      Documents joints
+                    </Label>
+                    <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
+                      {activity.documents.map((docUrl, index) => {
+                        const filename =
+                          docUrl.split("/").pop() || `document-${index + 1}`;
+                        return (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                          >
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm truncate">
+                                {filename}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleDownloadDocument(docUrl, filename)
+                              }
+                            >
+                              <Download className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ...existing dialogs and form... */}
+    </div>
+  );
+
+  // ...existing component methods...
 }

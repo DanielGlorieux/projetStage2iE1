@@ -1,625 +1,916 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs').promises;
-const Activity = require('../models/Activity');
-const User = require('../models/User');
-const Notification = require('../models/Notification');
-const auth = require('../middleware/auth');
+const express = require("express");
+const { PrismaClient } = require("@prisma/client");
+const { body, param, query, validationResult } = require("express-validator");
+const upload = require("../middleware/upload");
+const { authorize } = require("../middleware/auth");
+const path = require("path");
+const fs = require("fs-extra");
+const XLSX = require("xlsx");
+const PDFDocument = require("pdfkit");
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
-// Configuration multer pour l'upload de fichiers
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadPath = path.join(__dirname, '..', 'uploads', 'activities');
-    try {
-      await fs.mkdir(uploadPath, { recursive: true });
-    } catch (error) {
-      console.error('Erreur création dossier upload:', error);
-    }
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const extension = path.extname(file.originalname);
-    cb(null, `activity-${uniqueSuffix}${extension}`);
-  }
-});
-
-const upload = multer({
-  storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max
-    files: 5 // 5 fichiers max
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'image/jpeg',
-      'image/png',
-      'image/jpg'
-    ];
-    
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Type de fichier non autorisé'), false);
-    }
-  }
-});
-
-// @route   GET /api/activities
-// @desc    Obtenir les activités (filtrées selon le rôle)
-// @access  Private
-router.get('/', auth, async (req, res) => {
-  try {
-    const { 
-      status, 
-      type, 
-      page = 1, 
-      limit = 10, 
-      search,
-      student,
-      supervisor 
-    } = req.query;
-
-    // Construction du filtre selon le rôle
-    let filter = { isActive: true };
-    
-    if (req.user.role === 'student') {
-      // Les étudiants ne voient que leurs activités
-      filter.student = req.user.userId;
-    } else if (req.user.role === 'supervisor') {
-      // Les superviseurs voient les activités qu'ils encadrent ou toutes si pas spécifié
-      if (supervisor) {
-        filter.supervisor = supervisor;
+// Validation pour les activités
+const activityValidation = [
+  body("title")
+    .isLength({ min: 3, max: 200 })
+    .withMessage("Le titre doit contenir entre 3 et 200 caractères"),
+  body("type")
+    .isIn(["ENTREPRENEURIAT", "LEADERSHIP", "DIGITAL"])
+    .withMessage("Type d'activité invalide"),
+  body("description")
+    .isLength({ min: 100, max: 2000 })
+    .withMessage("La description doit contenir entre 100 et 2000 caractères"),
+  body("startDate").isISO8601().withMessage("Date de début invalide"),
+  body("endDate")
+    .isISO8601()
+    .withMessage("Date de fin invalide")
+    .custom((endDate, { req }) => {
+      if (new Date(endDate) <= new Date(req.body.startDate)) {
+        throw new Error(
+          "La date de fin doit être postérieure à la date de début"
+        );
       }
+      return true;
+    }),
+  body("status")
+    .optional()
+    .isIn([
+      "PLANNED",
+      "IN_PROGRESS",
+      "COMPLETED",
+      "SUBMITTED",
+      "EVALUATED",
+      "CANCELLED",
+    ])
+    .withMessage("Statut invalide"),
+  body("priority")
+    .optional()
+    .isIn(["LOW", "MEDIUM", "HIGH"])
+    .withMessage("Priorité invalide"),
+  body("estimatedHours")
+    .optional()
+    .isInt({ min: 0, max: 1000 })
+    .withMessage("Heures estimées invalides"),
+  body("actualHours")
+    .optional()
+    .isInt({ min: 0, max: 1000 })
+    .withMessage("Heures réelles invalides"),
+  body("objectives")
+    .optional()
+    .isArray()
+    .withMessage("Les objectifs doivent être un tableau"),
+  body("outcomes")
+    .optional()
+    .isArray()
+    .withMessage("Les résultats doivent être un tableau"),
+  body("challenges")
+    .optional()
+    .isArray()
+    .withMessage("Les défis doivent être un tableau"),
+  body("learnings")
+    .optional()
+    .isArray()
+    .withMessage("Les apprentissages doivent être un tableau"),
+  body("collaborators")
+    .optional()
+    .isArray()
+    .withMessage("Les collaborateurs doivent être un tableau"),
+  body("tags")
+    .optional()
+    .isArray()
+    .withMessage("Les tags doivent être un tableau"),
+];
+
+// GET /api/activities - Récupérer les activités
+router.get("/", async (req, res, next) => {
+  try {
+    const { userId, type, status, limit = 50, offset = 0 } = req.query;
+
+    // Construire les filtres
+    const where = {};
+
+    // Filtrer par utilisateur (superviseurs peuvent voir tous les étudiants)
+    if (req.user.role === "STUDENT") {
+      where.userId = req.user.id;
+    } else if (userId) {
+      where.userId = userId;
     }
-    // led_team voit toutes les activités (pas de filtre supplémentaire)
 
-    // Filtres additionnels
-    if (status) filter.status = status;
-    if (type) filter.type = type;
-    if (student && req.user.role !== 'student') filter.student = student;
+    if (type) where.type = type;
+    if (status) where.status = status;
 
-    // Recherche textuelle
-    if (search) {
-      filter.$text = { $search: search };
-    }
-
-    // Options de pagination
-    const options = {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      sort: { submittedAt: -1 },
-      populate: [
-        {
-          path: 'student',
-          select: 'firstName lastName email program year studentNumber'
+    const activities = await prisma.activity.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            filiere: true,
+            niveau: true,
+          },
         },
-        {
-          path: 'supervisor',
-          select: 'firstName lastName email'
+        evaluations: {
+          include: {
+            evaluator: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
         },
-        {
-          path: 'evaluation.evaluatedBy',
-          select: 'firstName lastName'
-        }
-      ]
-    };
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: parseInt(limit),
+      skip: parseInt(offset),
+    });
 
-    const result = await Activity.paginate(filter, options);
+    // Formatter les activités pour le frontend
+    const formattedActivities = activities.map((activity) => ({
+      ...activity,
+      startDate: activity.startDate,
+      endDate: activity.endDate,
+      score: activity.evaluations[0]?.score,
+      maxScore: activity.evaluations[0]?.maxScore,
+      feedback: activity.evaluations[0]?.feedback,
+      evaluatorName: activity.evaluations[0]?.evaluator.name,
+      evaluatedAt: activity.evaluations[0]?.createdAt,
+    }));
 
     res.json({
-      activities: result.docs,
-      pagination: {
-        total: result.totalDocs,
-        page: result.page,
-        pages: result.totalPages,
-        limit: result.limit,
-        hasNext: result.hasNextPage,
-        hasPrev: result.hasPrevPage
-      }
+      success: true,
+      data: formattedActivities,
     });
-
   } catch (error) {
-    console.error('Erreur lors de la récupération des activités:', error);
-    res.status(500).json({
-      error: 'Erreur interne du serveur'
-    });
+    next(error);
   }
 });
 
-// @route   GET /api/activities/:id
-// @desc    Obtenir une activité spécifique
-// @access  Private
-router.get('/:id', auth, async (req, res) => {
+// GET /api/activities/:id - Récupérer une activité spécifique
+router.get("/:id", param("id").isUUID(), async (req, res, next) => {
   try {
-    const activity = await Activity.findById(req.params.id)
-      .populate('student', 'firstName lastName email program year studentNumber')
-      .populate('supervisor', 'firstName lastName email')
-      .populate('evaluation.evaluatedBy', 'firstName lastName');
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: "ID invalide",
+        details: errors.array(),
+      });
+    }
+
+    const { id } = req.params;
+
+    const where = { id };
+    // Les étudiants ne peuvent voir que leurs propres activités
+    if (req.user.role === "STUDENT") {
+      where.userId = req.user.id;
+    }
+
+    const activity = await prisma.activity.findFirst({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            filiere: true,
+            niveau: true,
+          },
+        },
+        evaluations: {
+          include: {
+            evaluator: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
     if (!activity) {
       return res.status(404).json({
-        error: 'Activité non trouvée'
+        success: false,
+        error: "Activité non trouvée",
       });
     }
 
-    // Vérifier les permissions
-    if (req.user.role === 'student' && 
-        activity.student._id.toString() !== req.user.userId) {
-      return res.status(403).json({
-        error: 'Accès non autorisé'
-      });
-    }
+    // Formatter l'activité
+    const formattedActivity = {
+      ...activity,
+      score: activity.evaluations[0]?.score,
+      maxScore: activity.evaluations[0]?.maxScore,
+      feedback: activity.evaluations[0]?.feedback,
+      evaluatorName: activity.evaluations[0]?.evaluator.name,
+      evaluatedAt: activity.evaluations[0]?.createdAt,
+    };
 
-    res.json({ activity });
-
-  } catch (error) {
-    console.error('Erreur lors de la récupération de l\'activité:', error);
-    res.status(500).json({
-      error: 'Erreur interne du serveur'
+    res.json({
+      success: true,
+      data: formattedActivity,
     });
+  } catch (error) {
+    next(error);
   }
 });
 
-// @route   POST /api/activities
-// @desc    Créer une nouvelle activité
-// @access  Private (étudiants seulement)
-router.post('/', auth, upload.array('documents', 5), async (req, res) => {
+// POST /api/activities - Créer une nouvelle activité
+router.post("/", activityValidation, async (req, res, next) => {
   try {
-    if (req.user.role !== 'student') {
-      return res.status(403).json({
-        error: 'Seuls les étudiants peuvent créer des activités'
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: "Données invalides",
+        details: errors.array(),
       });
     }
 
     const {
       title,
-      description,
       type,
+      description,
       startDate,
       endDate,
-      status = 'planned',
-      objectives,
-      tags
+      status = "PLANNED",
+      priority = "MEDIUM",
+      estimatedHours,
+      actualHours,
+      objectives = [],
+      outcomes = [],
+      challenges = [],
+      learnings = [],
+      collaborators = [],
+      tags = [],
     } = req.body;
 
-    // Validation de base
-    if (!title || !description || !type || !startDate || !endDate) {
-      return res.status(400).json({
-        error: 'Tous les champs obligatoires doivent être remplis'
-      });
+    // Calculer le progrès basé sur le statut
+    let progress = 0;
+    switch (status) {
+      case "IN_PROGRESS":
+        progress = 50;
+        break;
+      case "COMPLETED":
+        progress = 100;
+        break;
+      case "SUBMITTED":
+        progress = 100;
+        break;
+      case "EVALUATED":
+        progress = 100;
+        break;
+      default:
+        progress = 0;
     }
 
-    // Validation des dates
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    if (start >= end) {
-      return res.status(400).json({
-        error: 'La date de fin doit être postérieure à la date de début'
-      });
-    }
-
-    // Préparation des documents uploadés
-    const documents = req.files ? req.files.map(file => ({
-      name: file.filename,
-      originalName: file.originalname,
-      path: file.filename,
-      mimetype: file.mimetype,
-      size: file.size
-    })) : [];
-
-    // Traitement des objectifs
-    let processedObjectives = [];
-    if (objectives) {
-      try {
-        processedObjectives = typeof objectives === 'string' ? 
-          JSON.parse(objectives) : objectives;
-      } catch (error) {
-        processedObjectives = [];
-      }
-    }
-
-    // Traitement des tags
-    let processedTags = [];
-    if (tags) {
-      processedTags = typeof tags === 'string' ? 
-        tags.split(',').map(tag => tag.trim()) : tags;
-    }
-
-    // Création de l'activité
-    const activity = new Activity({
-      title,
-      description,
-      type,
-      startDate: start,
-      endDate: end,
-      status,
-      student: req.user.userId,
-      documents,
-      objectives: processedObjectives,
-      tags: processedTags
+    const activity = await prisma.activity.create({
+      data: {
+        title,
+        type,
+        description,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        status,
+        priority,
+        progress,
+        estimatedHours,
+        actualHours,
+        objectives,
+        outcomes,
+        challenges,
+        learnings,
+        collaborators: collaborators.filter((c) => c.trim()),
+        tags,
+        documents: [],
+        userId: req.user.id,
+        submittedAt: status === "SUBMITTED" ? new Date() : null,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
-
-    await activity.save();
-
-    // Populating pour la réponse
-    await activity.populate('student', 'firstName lastName email program year');
-
-    // Créer des notifications pour les superviseurs si l'activité est soumise
-    if (status === 'pending' || status === 'in_review') {
-      const supervisors = await User.find({ 
-        role: { $in: ['supervisor', 'led_team'] },
-        isActive: true 
-      });
-
-      for (const supervisor of supervisors) {
-        await Notification.createActivityNotification(
-          'activity_submitted',
-          activity,
-          supervisor._id
-        );
-      }
-    }
 
     res.status(201).json({
-      message: 'Activité créée avec succès',
-      activity
+      success: true,
+      data: activity,
+      message: "Activité créée avec succès",
     });
-
   } catch (error) {
-    console.error('Erreur lors de la création de l\'activité:', error);
-
-    // Nettoyer les fichiers uploadés en cas d'erreur
-    if (req.files) {
-      for (const file of req.files) {
-        try {
-          await fs.unlink(file.path);
-        } catch (unlinkError) {
-          console.error('Erreur suppression fichier:', unlinkError);
-        }
-      }
-    }
-
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        error: 'Données invalides',
-        details: errors
-      });
-    }
-
-    res.status(500).json({
-      error: 'Erreur interne du serveur'
-    });
+    next(error);
   }
 });
 
-// @route   PUT /api/activities/:id
-// @desc    Mettre à jour une activité
-// @access  Private
-router.put('/:id', auth, upload.array('newDocuments', 5), async (req, res) => {
-  try {
-    const activity = await Activity.findById(req.params.id);
-    
-    if (!activity) {
-      return res.status(404).json({
-        error: 'Activité non trouvée'
-      });
-    }
-
-    // Vérifier les permissions
-    if (req.user.role === 'student' && 
-        activity.student.toString() !== req.user.userId) {
-      return res.status(403).json({
-        error: 'Accès non autorisé'
-      });
-    }
-
-    // Les activités approuvées ne peuvent pas être modifiées par les étudiants
-    if (req.user.role === 'student' && activity.status === 'approved') {
-      return res.status(403).json({
-        error: 'Impossible de modifier une activité approuvée'
-      });
-    }
-
-    const allowedUpdates = [
-      'title', 'description', 'startDate', 'endDate', 
-      'status', 'progress', 'objectives', 'tags'
-    ];
-
-    // Préparer les mises à jour
-    const updates = {};
-    Object.keys(req.body).forEach(key => {
-      if (allowedUpdates.includes(key)) {
-        updates[key] = req.body[key];
-      }
-    });
-
-    // Traitement spécial pour les objectifs et tags
-    if (updates.objectives && typeof updates.objectives === 'string') {
-      try {
-        updates.objectives = JSON.parse(updates.objectives);
-      } catch (error) {
-        delete updates.objectives;
-      }
-    }
-
-    if (updates.tags && typeof updates.tags === 'string') {
-      updates.tags = updates.tags.split(',').map(tag => tag.trim());
-    }
-
-    // Validation des dates si modifiées
-    if (updates.startDate || updates.endDate) {
-      const startDate = new Date(updates.startDate || activity.startDate);
-      const endDate = new Date(updates.endDate || activity.endDate);
-      
-      if (startDate >= endDate) {
+// PUT /api/activities/:id - Mettre à jour une activité
+router.put(
+  "/:id",
+  param("id").isUUID(),
+  activityValidation,
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
         return res.status(400).json({
-          error: 'La date de fin doit être postérieure à la date de début'
+          success: false,
+          error: "Données invalides",
+          details: errors.array(),
         });
       }
-    }
 
-    // Ajouter les nouveaux documents
-    if (req.files && req.files.length > 0) {
-      const newDocuments = req.files.map(file => ({
-        name: file.filename,
-        originalName: file.originalname,
-        path: file.filename,
-        mimetype: file.mimetype,
-        size: file.size
-      }));
-      
-      updates.documents = [...activity.documents, ...newDocuments];
-    }
+      const { id } = req.params;
 
-    // Enregistrer l'historique des modifications
-    const changes = Object.keys(updates).reduce((acc, key) => {
-      if (activity[key] !== updates[key]) {
-        acc[key] = {
-          from: activity[key],
-          to: updates[key]
-        };
+      // Vérifier que l'activité existe et appartient à l'utilisateur
+      const existingActivity = await prisma.activity.findFirst({
+        where: {
+          id,
+          userId: req.user.id,
+        },
+      });
+
+      if (!existingActivity) {
+        return res.status(404).json({
+          success: false,
+          error: "Activité non trouvée ou accès non autorisé",
+        });
       }
-      return acc;
-    }, {});
 
-    if (Object.keys(changes).length > 0) {
-      activity.addRevision(req.user.userId, changes, req.body.revisionReason);
-    }
+      // Vérifier si l'activité peut être modifiée
+      if (existingActivity.status === "EVALUATED") {
+        return res.status(400).json({
+          success: false,
+          error: "Impossible de modifier une activité déjà évaluée",
+        });
+      }
 
-    // Appliquer les mises à jour
-    Object.assign(activity, updates);
-    await activity.save();
+      const {
+        title,
+        type,
+        description,
+        startDate,
+        endDate,
+        status,
+        priority,
+        estimatedHours,
+        actualHours,
+        objectives,
+        outcomes,
+        challenges,
+        learnings,
+        collaborators,
+        tags,
+      } = req.body;
 
-    // Populate pour la réponse
-    await activity.populate([
-      { path: 'student', select: 'firstName lastName email program year' },
-      { path: 'supervisor', select: 'firstName lastName email' }
-    ]);
-
-    res.json({
-      message: 'Activité mise à jour avec succès',
-      activity
-    });
-
-  } catch (error) {
-    console.error('Erreur lors de la mise à jour de l\'activité:', error);
-
-    // Nettoyer les nouveaux fichiers en cas d'erreur
-    if (req.files) {
-      for (const file of req.files) {
-        try {
-          await fs.unlink(file.path);
-        } catch (unlinkError) {
-          console.error('Erreur suppression fichier:', unlinkError);
+      // Calculer le progrès
+      let progress = existingActivity.progress;
+      if (status) {
+        switch (status) {
+          case "PLANNED":
+            progress = 0;
+            break;
+          case "IN_PROGRESS":
+            progress = 50;
+            break;
+          case "COMPLETED":
+            progress = 100;
+            break;
+          case "SUBMITTED":
+            progress = 100;
+            break;
+          case "EVALUATED":
+            progress = 100;
+            break;
         }
       }
-    }
 
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
+      const updateData = {
+        title,
+        type,
+        description,
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+        status,
+        priority,
+        progress,
+        estimatedHours,
+        actualHours,
+        objectives,
+        outcomes,
+        challenges,
+        learnings,
+        collaborators: collaborators?.filter((c) => c.trim()),
+        tags,
+      };
+
+      // Ajouter submittedAt si le statut change vers SUBMITTED
+      if (status === "SUBMITTED" && existingActivity.status !== "SUBMITTED") {
+        updateData.submittedAt = new Date();
+      }
+
+      // Supprimer les valeurs undefined
+      Object.keys(updateData).forEach((key) => {
+        if (updateData[key] === undefined) {
+          delete updateData[key];
+        }
+      });
+
+      const updatedActivity = await prisma.activity.update({
+        where: { id },
+        data: updateData,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      res.json({
+        success: true,
+        data: updatedActivity,
+        message: "Activité mise à jour avec succès",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// DELETE /api/activities/:id - Supprimer une activité
+router.delete("/:id", param("id").isUUID(), async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
       return res.status(400).json({
-        error: 'Données invalides',
-        details: errors
+        success: false,
+        error: "ID invalide",
+        details: errors.array(),
       });
     }
 
-    res.status(500).json({
-      error: 'Erreur interne du serveur'
-    });
-  }
-});
+    const { id } = req.params;
 
-// @route   DELETE /api/activities/:id
-// @desc    Supprimer une activité
-// @access  Private
-router.delete('/:id', auth, async (req, res) => {
-  try {
-    const activity = await Activity.findById(req.params.id);
-    
+    const activity = await prisma.activity.findFirst({
+      where: {
+        id,
+        userId: req.user.id,
+      },
+    });
+
     if (!activity) {
       return res.status(404).json({
-        error: 'Activité non trouvée'
+        success: false,
+        error: "Activité non trouvée ou accès non autorisé",
       });
     }
 
-    // Vérifier les permissions
-    if (req.user.role === 'student' && 
-        activity.student.toString() !== req.user.userId) {
-      return res.status(403).json({
-        error: 'Accès non autorisé'
+    // Vérifier si l'activité peut être supprimée
+    if (activity.status === "EVALUATED") {
+      return res.status(400).json({
+        success: false,
+        error: "Impossible de supprimer une activité déjà évaluée",
       });
     }
 
-    // Les activités approuvées ne peuvent pas être supprimées
-    if (activity.status === 'approved') {
-      return res.status(403).json({
-        error: 'Impossible de supprimer une activité approuvée'
-      });
+    // Supprimer les fichiers associés
+    if (activity.documents && activity.documents.length > 0) {
+      for (const docUrl of activity.documents) {
+        try {
+          const filePath = path.join(
+            __dirname,
+            "../../uploads",
+            req.user.id,
+            path.basename(docUrl)
+          );
+          await fs.remove(filePath);
+        } catch (fileError) {
+          console.error("Erreur suppression fichier:", fileError);
+        }
+      }
     }
 
-    // Supprimer l'activité (le middleware pre-remove se charge des fichiers)
-    await activity.remove();
+    await prisma.activity.delete({
+      where: { id },
+    });
 
     res.json({
-      message: 'Activité supprimée avec succès'
+      success: true,
+      message: "Activité supprimée avec succès",
     });
-
   } catch (error) {
-    console.error('Erreur lors de la suppression de l\'activité:', error);
-    res.status(500).json({
-      error: 'Erreur interne du serveur'
-    });
-  }
-});
-
-// @route   GET /api/activities/stats/overview
-// @desc    Obtenir les statistiques des activités
-// @access  Private
-router.get('/stats/overview', auth, async (req, res) => {
-  try {
-    let matchFilter = { isActive: true };
-    
-    // Filtrer selon le rôle
-    if (req.user.role === 'student') {
-      matchFilter.student = req.user.userId;
-    }
-
-    const stats = await Activity.aggregate([
-      { $match: matchFilter },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          byType: {
-            $push: {
-              type: '$type',
-              status: '$status'
-            }
-          },
-          byStatus: {
-            $push: '$status'
-          },
-          avgScore: {
-            $avg: {
-              $cond: [
-                { $ne: ['$evaluation', null] },
-                { $divide: ['$evaluation.score', '$evaluation.maxScore'] },
-                null
-              ]
-            }
-          }
-        }
-      },
-      {
-        $project: {
-          total: 1,
-          avgScore: { $multiply: ['$avgScore', 100] },
-          typeBreakdown: {
-            entrepreneuriat: {
-              $size: {
-                $filter: {
-                  input: '$byType',
-                  cond: { $eq: ['$$this.type', 'entrepreneuriat'] }
-                }
-              }
-            },
-            leadership: {
-              $size: {
-                $filter: {
-                  input: '$byType',
-                  cond: { $eq: ['$$this.type', 'leadership'] }
-                }
-              }
-            },
-            digital: {
-              $size: {
-                $filter: {
-                  input: '$byType',
-                  cond: { $eq: ['$$this.type', 'digital'] }
-                }
-              }
-            }
-          },
-          statusBreakdown: {
-            planned: {
-              $size: {
-                $filter: {
-                  input: '$byStatus',
-                  cond: { $eq: ['$$this', 'planned'] }
-                }
-              }
-            },
-            in_progress: {
-              $size: {
-                $filter: {
-                  input: '$byStatus',
-                  cond: { $eq: ['$$this', 'in_progress'] }
-                }
-              }
-            },
-            completed: {
-              $size: {
-                $filter: {
-                  input: '$byStatus',
-                  cond: { $eq: ['$$this', 'completed'] }
-                }
-              }
-            },
-            pending: {
-              $size: {
-                $filter: {
-                  input: '$byStatus',
-                  cond: { $eq: ['$$this', 'pending'] }
-                }
-              }
-            },
-            approved: {
-              $size: {
-                $filter: {
-                  input: '$byStatus',
-                  cond: { $eq: ['$$this', 'approved'] }
-                }
-              }
-            },
-            rejected: {
-              $size: {
-                $filter: {
-                  input: '$byStatus',
-                  cond: { $eq: ['$$this', 'rejected'] }
-                }
-              }
-            }
-          }
-        }
-      }
-    ]);
-
-    const result = stats[0] || {
-      total: 0,
-      avgScore: 0,
-      typeBreakdown: { entrepreneuriat: 0, leadership: 0, digital: 0 },
-      statusBreakdown: { 
-        planned: 0, in_progress: 0, completed: 0, 
-        pending: 0, approved: 0, rejected: 0 
-      }
-    };
-
-    res.json({ stats: result });
-
-  } catch (error) {
-    console.error('Erreur lors de la récupération des statistiques:', error);
-    res.status(500).json({
-      error: 'Erreur interne du serveur'
-    });
+    next(error);
   }
 });
 
 module.exports = router;
+
+//------------------------------------------------//
+
+// POST /api/activities/:id/documents - Upload de documents
+router.post(
+  "/:id/documents",
+  param("id").isUUID(),
+  upload.array("documents", 10),
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: "ID invalide",
+          details: errors.array(),
+        });
+      }
+
+      const { id } = req.params;
+
+      // Vérifier que l'activité existe et appartient à l'utilisateur
+      const activity = await prisma.activity.findFirst({
+        where: {
+          id,
+          userId: req.user.id,
+        },
+      });
+
+      if (!activity) {
+        return res.status(404).json({
+          success: false,
+          error: "Activité non trouvée ou accès non autorisé",
+        });
+      }
+
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Aucun fichier fourni",
+        });
+      }
+
+      // Générer les URLs des fichiers
+      const documentUrls = req.files.map((file) => {
+        return `/uploads/${req.user.id}/${file.filename}`;
+      });
+
+      // Mettre à jour l'activité avec les nouveaux documents
+      const updatedActivity = await prisma.activity.update({
+        where: { id },
+        data: {
+          documents: [...activity.documents, ...documentUrls],
+        },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          urls: documentUrls,
+          activity: updatedActivity,
+        },
+        message: "Documents uploadés avec succès",
+      });
+    } catch (error) {
+      // Nettoyer les fichiers en cas d'erreur
+      if (req.files) {
+        req.files.forEach((file) => {
+          fs.remove(file.path).catch(console.error);
+        });
+      }
+      next(error);
+    }
+  }
+);
+
+// POST /api/activities/:id/submit - Soumettre une activité
+router.post("/:id/submit", param("id").isUUID(), async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: "ID invalide",
+        details: errors.array(),
+      });
+    }
+
+    const { id } = req.params;
+
+    const activity = await prisma.activity.findFirst({
+      where: {
+        id,
+        userId: req.user.id,
+      },
+    });
+
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        error: "Activité non trouvée ou accès non autorisé",
+      });
+    }
+
+    if (activity.status === "SUBMITTED" || activity.status === "EVALUATED") {
+      return res.status(400).json({
+        success: false,
+        error: "Cette activité a déjà été soumise",
+      });
+    }
+
+    // Vérifier que l'activité est complète
+    if (!activity.description || activity.description.length < 100) {
+      return res.status(400).json({
+        success: false,
+        error: "La description doit contenir au moins 100 caractères",
+      });
+    }
+
+    const now = new Date();
+    const isLate = now > activity.endDate;
+
+    const updatedActivity = await prisma.activity.update({
+      where: { id },
+      data: {
+        status: "SUBMITTED",
+        progress: 100,
+        submittedAt: now,
+        isLateSubmission: isLate,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: updatedActivity,
+      message: isLate
+        ? "Activité soumise en retard"
+        : "Activité soumise avec succès",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/activities/:id/evaluate - Évaluer une activité (superviseurs uniquement)
+router.post(
+  "/:id/evaluate",
+  authorize("LED_TEAM", "SUPERVISOR"),
+  param("id").isUUID(),
+  [
+    body("score")
+      .isInt({ min: 0, max: 100 })
+      .withMessage("Score invalide (0-100)"),
+    body("feedback")
+      .optional()
+      .isLength({ max: 1000 })
+      .withMessage("Feedback trop long"),
+    body("status")
+      .optional()
+      .isIn(["EVALUATED"])
+      .withMessage("Statut invalide"),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: "Données invalides",
+          details: errors.array(),
+        });
+      }
+
+      const { id } = req.params;
+      const { score, feedback, status = "EVALUATED" } = req.body;
+
+      const activity = await prisma.activity.findUnique({
+        where: { id },
+        include: {
+          user: true,
+          evaluations: true,
+        },
+      });
+
+      if (!activity) {
+        return res.status(404).json({
+          success: false,
+          error: "Activité non trouvée",
+        });
+      }
+
+      if (activity.status !== "SUBMITTED") {
+        return res.status(400).json({
+          success: false,
+          error: "Cette activité n'a pas encore été soumise",
+        });
+      }
+
+      // Créer ou mettre à jour l'évaluation
+      const evaluation = await prisma.evaluation.upsert({
+        where: {
+          activityId: activity.id,
+        },
+        update: {
+          score,
+          feedback,
+          evaluatorId: req.user.id,
+        },
+        create: {
+          score,
+          feedback,
+          maxScore: 100,
+          activityId: activity.id,
+          evaluatorId: req.user.id,
+        },
+      });
+
+      // Mettre à jour le statut de l'activité
+      const updatedActivity = await prisma.activity.update({
+        where: { id },
+        data: {
+          status,
+          evaluatedAt: new Date(),
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          evaluations: {
+            include: {
+              evaluator: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          activity: updatedActivity,
+          evaluation,
+        },
+        message: "Activité évaluée avec succès",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// GET /api/activities/export - Exporter les activités
+router.post(
+  "/export",
+  [
+    body("format").isIn(["csv", "excel", "pdf"]).withMessage("Format invalide"),
+    body("activities").isArray().withMessage("Activités invalides"),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: "Données invalides",
+          details: errors.array(),
+        });
+      }
+
+      const { format, activities } = req.body;
+
+      if (format === "csv") {
+        // Export CSV
+        const csvData = activities.map((activity) => ({
+          Titre: activity.title,
+          Type: activity.type,
+          Description: activity.description.substring(0, 100) + "...",
+          "Date début": new Date(activity.startDate).toLocaleDateString(
+            "fr-FR"
+          ),
+          "Date fin": new Date(activity.endDate).toLocaleDateString("fr-FR"),
+          Statut: activity.status,
+          Progrès: `${activity.progress}%`,
+          Score: activity.score || "Non évalué",
+          Priorité: activity.priority,
+          "Heures estimées": activity.estimatedHours || "",
+          "Heures réelles": activity.actualHours || "",
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(csvData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Activités");
+
+        const buffer = XLSX.write(wb, { type: "buffer", bookType: "csv" });
+
+        res.setHeader("Content-Type", "text/csv");
+        res.setHeader(
+          "Content-Disposition",
+          "attachment; filename=activites.csv"
+        );
+        res.send(buffer);
+      } else if (format === "excel") {
+        // Export Excel
+        const excelData = activities.map((activity) => ({
+          Titre: activity.title,
+          Type: activity.type,
+          Description: activity.description,
+          "Date début": new Date(activity.startDate).toLocaleDateString(
+            "fr-FR"
+          ),
+          "Date fin": new Date(activity.endDate).toLocaleDateString("fr-FR"),
+          Statut: activity.status,
+          Progrès: activity.progress,
+          Score: activity.score || "Non évalué",
+          Feedback: activity.feedback || "",
+          Priorité: activity.priority,
+          "Heures estimées": activity.estimatedHours || "",
+          "Heures réelles": activity.actualHours || "",
+          Objectifs: activity.objectives?.join("; ") || "",
+          Résultats: activity.outcomes?.join("; ") || "",
+          Défis: activity.challenges?.join("; ") || "",
+          Apprentissages: activity.learnings?.join("; ") || "",
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Mes Activités LED");
+
+        const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+        res.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+        res.setHeader(
+          "Content-Disposition",
+          "attachment; filename=activites.xlsx"
+        );
+        res.send(buffer);
+      } else if (format === "pdf") {
+        // Export PDF
+        const doc = new PDFDocument();
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader(
+          "Content-Disposition",
+          "attachment; filename=activites.pdf"
+        );
+
+        doc.pipe(res);
+
+        // Titre
+        doc.fontSize(20).text("Mes Activités LED", { align: "center" });
+        doc.moveDown(2);
+
+        // Activités
+        activities.forEach((activity, index) => {
+          doc.fontSize(16).text(`${index + 1}. ${activity.title}`);
+          doc.fontSize(12).text(`Type: ${activity.type}`);
+          doc.text(
+            `Période: ${new Date(activity.startDate).toLocaleDateString(
+              "fr-FR"
+            )} - ${new Date(activity.endDate).toLocaleDateString("fr-FR")}`
+          );
+          doc.text(`Statut: ${activity.status} (${activity.progress}%)`);
+          if (activity.score) {
+            doc.text(`Score: ${activity.score}/100`);
+          }
+          doc.text(`Description: ${activity.description.substring(0, 200)}...`);
+          doc.moveDown();
+
+          // Nouvelle page si nécessaire
+          if (doc.y > 700) {
+            doc.addPage();
+          }
+        });
+
+        doc.end();
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+);
