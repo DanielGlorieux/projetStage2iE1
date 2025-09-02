@@ -404,7 +404,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   );
 }*/
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -460,6 +460,26 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [loginMode, setLoginMode] = useState<"login" | "register">("login");
+  const [backendStatus, setBackendStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+
+  useEffect(() => {
+    console.log("🔑 LoginPage mounted");
+
+    // Test de connexion au backend
+    fetch("http://localhost:5000/health")
+      .then((response) => {
+        if (response.ok) {
+          setBackendStatus("connected");
+          console.log("✅ Backend connected");
+        } else {
+          throw new Error("Backend not responding");
+        }
+      })
+      .catch((error) => {
+        setBackendStatus("error");
+        console.error("❌ Backend connection failed:", error);
+      });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

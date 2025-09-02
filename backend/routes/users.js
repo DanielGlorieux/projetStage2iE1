@@ -1,150 +1,439 @@
-const express = require('express');
-const { body, query, validationResult } = require('express-validator');
-const bcrypt = require('bcryptjs');
-const database = require('../config/database');
-const { requireRoles } = require('../middleware/auth');
+const express = require("express");
+const { PrismaClient } = require("@prisma/client");
+const { body, param, validationResult } = require("express-validator");
+const { authorize } = require("../middleware/auth");
+const bcrypt = require("bcryptjs");
 
 const router = express.Router();
+const prisma = new PrismaClient();
 
-/**
- * @route GET /api/users/profile
- * @desc Récupérer le profil de l'utilisateur connecté
- * @access Private
- */
-router.get('/profile', async (req, res) => {
-    try {
-        const user = await database.query(
-            'SELECT id, email, first_name, last_name, role, phone_number, profile_picture_url, is_active, email_verified, created_at FROM users WHERE id = ?',
-            [req.user.id]
-        );
+// GET /api/users - Récupérer tous les utilisateurs (superviseurs uniquement)
+router.get("/", authorize("LED_TEAM", "SUPERVISOR"), async (req, res, next) => {
+  try {
+    const { role, page = 1, limit = 50, search } = req.query;
 
-        res.json({ data: user[0] });
-
-    } catch (error) {
-        console.error('Erreur récupération profil:', error);
-        res.status(500).json({
-            error: 'Erreur interne du serveur'
-        });
+    const where = {};
+    if (role) where.role = role;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+      ];
     }
+
+    const users = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        filiere: true,
+        niveau: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            activities: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: parseInt(limit),
+      skip: (parseInt(page) - 1) * parseInt(limit),
+    });
+
+    const total = await prisma.user.count({ where });
+
+    res.json({
+      success: true,
+      data: users,
+      meta: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit)),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-/**
- * @route PUT /api/users/profile
- * @desc Mettre à jour le profil utilisateur
- * @access Private
- */
-router.put('/profile', [
-    body('first_name').optional().trim().isLength({ min: 2, max: 100 }),
-    body('last_name').optional().trim().isLength({ min: 2, max: 100 }),
-    body('phone_number').optional().isMobilePhone()
-], async (req, res) => {
-    try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({
-                error: 'Données invalides',
-                details: errors.array()
-            });
-        }
-
-        const updateFields = [];
-        const updateValues = [];
-        const allowedFields = ['first_name', 'last_name', 'phone_number'];
-
-        allowedFields.forEach(field => {
-            if (req.body[field] !== undefined) {
-                updateFields.push(`${field} = ?`);
-                updateValues.push(req.body[field]);
-            }
-        });
-
-        if (updateFields.length === 0) {
-            return res.status(400).json({
-                error: 'Aucune modification détectée'
-            });
-        }
-
-        updateFields.push('updated_at = NOW()');
-        updateValues.push(req.user.id);
-
-        await database.query(
-            `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`,
-            updateValues
-        );
-
-        const updatedUser = await database.query(
-            'SELECT id, email, first_name, last_name, role, phone_number, profile_picture_url FROM users WHERE id = ?',
-            [req.user.id]
-        );
-
-        res.json({
-            message: 'Profil mis à jour avec succès',
-            data: updatedUser[0]
-        });
-
-    } catch (error) {
-        console.error('Erreur mise à jour profil:', error);
-        res.status(500).json({
-            error: 'Erreur interne du serveur'
-        });
+// GET /api/users/:id - Récupérer un utilisateur spécifique
+router.get("/:id", param("id").isUUID(), async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: "ID invalide",
+        details: errors.array(),
+      });
     }
+
+    const { id } = req.params;
+
+    // Les étudiants ne peuvent voir que leur propre profil
+    const targetId = req.user.role === "STUDENT" ? req.user.id : id;
+
+    const user = await prisma.user.findUnique({
+      where: { id: targetId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        filiere: true,
+        niveau: true,
+        createdAt: true,
+        updatedAt: true,
+        activities: {
+          include: {
+            evaluations: true,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "Utilisateur non trouvé",
+      });
+    }
+
+    // Calculer les statistiques
+    const stats = {
+      activitesTotal: user.activities.length,
+      activitesCompletes: user.activities.filter(
+        (a) => a.status === "COMPLETED" || a.status === "EVALUATED"
+      ).length,
+      scoresMoyens: {
+        entrepreneuriat: 0,
+        leadership: 0,
+        digital: 0,
+      },
+    };
+
+    // Calculer les scores moyens par compétence
+    const scoresByType = {
+      ENTREPRENEURIAT: [],
+      LEADERSHIP: [],
+      DIGITAL: [],
+    };
+
+    user.activities.forEach((activity) => {
+      if (activity.evaluations.length > 0) {
+        scoresByType[activity.type].push(activity.evaluations[0].score);
+      }
+    });
+
+    Object.keys(scoresByType).forEach((type) => {
+      const scores = scoresByType[type];
+      if (scores.length > 0) {
+        const avg =
+          scores.reduce((sum, score) => sum + score, 0) / scores.length;
+        stats.scoresMoyens[type.toLowerCase()] = Math.round(avg);
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...user,
+        statistics: stats,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-/**
- * @route GET /api/users
- * @desc Récupérer la liste des utilisateurs (LED team only)
- * @access Private (LED team and admin)
- */
-router.get('/', requireRoles(['led_team', 'admin']), [
-    query('role').optional().isIn(['student', 'led_team', 'supervisor', 'admin']),
-    query('page').optional().isInt({ min: 1 }),
-    query('limit').optional().isInt({ min: 1, max: 100 })
-], async (req, res) => {
+// PUT /api/users/:id - Mettre à jour un utilisateur
+router.put(
+  "/:id",
+  param("id").isUUID(),
+  [
+    body("name")
+      .optional()
+      .isLength({ min: 2, max: 100 })
+      .withMessage("Nom invalide"),
+    body("email").optional().isEmail().withMessage("Email invalide"),
+    body("role")
+      .optional()
+      .isIn(["STUDENT", "LED_TEAM", "SUPERVISOR"])
+      .withMessage("Rôle invalide"),
+    body("filiere").optional().isString().withMessage("Filière invalide"),
+    body("niveau").optional().isString().withMessage("Niveau invalide"),
+  ],
+  async (req, res, next) => {
     try {
-        const { role, page = 1, limit = 20 } = req.query;
-        const offset = (page - 1) * limit;
-
-        let whereClause = 'WHERE 1 = 1';
-        const queryParams = [];
-
-        if (role) {
-            whereClause += ' AND role = ?';
-            queryParams.push(role);
-        }
-
-        const users = await database.query(`
-            SELECT 
-                u.id, u.email, u.first_name, u.last_name, u.role, 
-                u.is_active, u.email_verified, u.created_at,
-                COUNT(s.id) as scholar_count
-            FROM users u
-            LEFT JOIN scholars s ON u.id = s.user_id
-            ${whereClause}
-            GROUP BY u.id
-            ORDER BY u.created_at DESC
-            LIMIT ? OFFSET ?
-        `, [...queryParams, parseInt(limit), offset]);
-
-        const [{ total }] = await database.query(`
-            SELECT COUNT(*) as total FROM users ${whereClause}
-        `, queryParams);
-
-        res.json({
-            data: users,
-            pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
-                total: parseInt(total),
-                pages: Math.ceil(total / limit)
-            }
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: "Données invalides",
+          details: errors.array(),
         });
+      }
 
+      const { id } = req.params;
+      const { name, email, role, filiere, niveau } = req.body;
+
+      // Vérifier les permissions
+      if (req.user.role === "STUDENT" && req.user.id !== id) {
+        return res.status(403).json({
+          success: false,
+          error: "Accès non autorisé",
+        });
+      }
+
+      // Les étudiants ne peuvent pas changer leur rôle
+      if (req.user.role === "STUDENT" && role && role !== "STUDENT") {
+        return res.status(403).json({
+          success: false,
+          error: "Vous ne pouvez pas modifier votre rôle",
+        });
+      }
+
+      const updateData = {};
+      if (name !== undefined) updateData.name = name;
+      if (email !== undefined) updateData.email = email;
+      if (role !== undefined && req.user.role !== "STUDENT")
+        updateData.role = role;
+      if (filiere !== undefined) updateData.filiere = filiere;
+      if (niveau !== undefined) updateData.niveau = niveau;
+
+      const updatedUser = await prisma.user.update({
+        where: { id },
+        data: updateData,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          filiere: true,
+          niveau: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      res.json({
+        success: true,
+        data: updatedUser,
+        message: "Profil mis à jour avec succès",
+      });
     } catch (error) {
-        console.error('Erreur récupération utilisateurs:', error);
-        res.status(500).json({
-            error: 'Erreur interne du serveur'
+      if (error.code === "P2002") {
+        return res.status(400).json({
+          success: false,
+          error: "Cet email est déjà utilisé",
         });
+      }
+      next(error);
     }
-});
+  }
+);
+
+// DELETE /api/users/:id - Supprimer un utilisateur (superviseurs uniquement)
+router.delete(
+  "/:id",
+  authorize("LED_TEAM", "SUPERVISOR"),
+  param("id").isUUID(),
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: "ID invalide",
+          details: errors.array(),
+        });
+      }
+
+      const { id } = req.params;
+
+      // Empêcher l'auto-suppression
+      if (req.user.id === id) {
+        return res.status(400).json({
+          success: false,
+          error: "Vous ne pouvez pas supprimer votre propre compte",
+        });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id },
+        include: {
+          activities: true,
+        },
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: "Utilisateur non trouvé",
+        });
+      }
+
+      // Supprimer l'utilisateur (cascade vers activités grâce au schéma)
+      await prisma.user.delete({
+        where: { id },
+      });
+
+      res.json({
+        success: true,
+        message: "Utilisateur supprimé avec succès",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /api/users/:id/change-password - Changer le mot de passe
+router.post(
+  "/:id/change-password",
+  param("id").isUUID(),
+  [
+    body("currentPassword")
+      .isLength({ min: 6 })
+      .withMessage("Mot de passe actuel requis"),
+    body("newPassword")
+      .isLength({ min: 6 })
+      .withMessage(
+        "Le nouveau mot de passe doit contenir au moins 6 caractères"
+      ),
+    body("confirmPassword").custom((value, { req }) => {
+      if (value !== req.body.newPassword) {
+        throw new Error("La confirmation du mot de passe ne correspond pas");
+      }
+      return true;
+    }),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: "Données invalides",
+          details: errors.array(),
+        });
+      }
+
+      const { id } = req.params;
+      const { currentPassword, newPassword } = req.body;
+
+      // Vérifier les permissions
+      if (req.user.role === "STUDENT" && req.user.id !== id) {
+        return res.status(403).json({
+          success: false,
+          error: "Accès non autorisé",
+        });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id },
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: "Utilisateur non trouvé",
+        });
+      }
+
+      // Vérifier le mot de passe actuel
+      const isValidPassword = await bcrypt.compare(
+        currentPassword,
+        user.password
+      );
+      if (!isValidPassword) {
+        return res.status(400).json({
+          success: false,
+          error: "Mot de passe actuel incorrect",
+        });
+      }
+
+      // Hasher le nouveau mot de passe
+      const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+
+      await prisma.user.update({
+        where: { id },
+        data: {
+          password: hashedNewPassword,
+        },
+      });
+
+      res.json({
+        success: true,
+        message: "Mot de passe modifié avec succès",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// GET /api/users/stats/overview - Statistiques générales des utilisateurs
+router.get(
+  "/stats/overview",
+  authorize("LED_TEAM", "SUPERVISOR"),
+  async (req, res, next) => {
+    try {
+      const userStats = await prisma.user.groupBy({
+        by: ["role"],
+        _count: {
+          id: true,
+        },
+      });
+
+      const totalUsers = await prisma.user.count();
+      const recentUsers = await prisma.user.count({
+        where: {
+          createdAt: {
+            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 derniers jours
+          },
+        },
+      });
+
+      const activeUsers = await prisma.user.count({
+        where: {
+          activities: {
+            some: {
+              createdAt: {
+                gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 derniers jours
+              },
+            },
+          },
+        },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          total: totalUsers,
+          recent: recentUsers,
+          active: activeUsers,
+          byRole: userStats.reduce((acc, stat) => {
+            acc[stat.role] = stat._count.id;
+            return acc;
+          }, {}),
+          activityRate:
+            totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 module.exports = router;

@@ -7,72 +7,59 @@ const rateLimit = require("express-rate-limit");
 const path = require("path");
 require("dotenv").config();
 
-// Import des routes
 const authRoutes = require("./routes/auth");
 const activityRoutes = require("./routes/activities");
-const searchRoutes = require("./routes/search");
 const userRoutes = require("./routes/users");
-
-// Import des middlewares
-const { errorHandler } = require("./middleware/errorHandler");
-const { authenticate } = require("./middleware/auth");
+const searchRoutes = require("./routes/search");
 
 const app = express();
-const PORT = process.env.PORT || 3001;
 
 // Middleware de sécurité
-app.use(
-  helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-  })
-);
+app.use(helmet());
+app.use(compression());
+app.use(morgan("combined"));
 
-// CORS configuration
+// Configuration CORS
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: ["http://localhost:3001", "http://localhost:5173"],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limite par IP
-  message: "Trop de requêtes, réessayez plus tard.",
-  standardHeaders: true,
-  legacyHeaders: false,
+  max: 100, // max 100 requests par window
 });
-app.use("/api/", limiter);
+app.use(limiter);
 
-// Middleware de base
-app.use(compression());
-app.use(morgan("combined"));
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+// Middleware de parsing
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Servir les fichiers statiques (uploads)
+// Servir les fichiers statiques
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-// Health check
+// Routes API
+app.use("/api/auth", authRoutes);
+app.use("/api/activities", activityRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/search", searchRoutes);
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Route de health check
 app.get("/health", (req, res) => {
   res.json({
     status: "OK",
     timestamp: new Date().toISOString(),
-    version: "1.0.0",
+    environment: process.env.NODE_ENV || "development",
   });
 });
 
-// Routes API
-app.use("/api/auth", authRoutes);
-app.use("/api/activities", authenticate, activityRoutes);
-app.use("/api/search", authenticate, searchRoutes);
-app.use("/api/users", authenticate, userRoutes);
-
 // Route par défaut
-app.get("/api", (req, res) => {
+app.get("/", (req, res) => {
   res.json({
     message: "API Plateforme LED 2iE",
     version: "1.0.0",
@@ -80,26 +67,70 @@ app.get("/api", (req, res) => {
   });
 });
 
-// Gestion des erreurs 404
+// Middleware de gestion d'erreurs
+app.use((err, req, res, next) => {
+  console.error("Erreur:", err);
+
+  // Erreur de validation Prisma
+  if (err.code === "P2002") {
+    return res.status(400).json({
+      success: false,
+      error: "Données dupliquées",
+      message: "Cette donnée existe déjà",
+    });
+  }
+
+  // Erreur de validation express-validator
+  if (err.type === "validation") {
+    return res.status(400).json({
+      success: false,
+      error: "Données invalides",
+      details: err.errors,
+    });
+  }
+
+  // Erreur JWT
+  if (err.name === "JsonWebTokenError") {
+    return res.status(401).json({
+      success: false,
+      error: "Token invalide",
+    });
+  }
+
+  // Erreur par défaut
+  res.status(err.status || 500).json({
+    success: false,
+    error: err.message || "Erreur serveur interne",
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+  });
+});
+
+// Gestion des routes non trouvées
 app.use("*", (req, res) => {
   res.status(404).json({
     success: false,
     error: "Route non trouvée",
-    path: req.originalUrl,
+    message: `La route ${req.method} ${req.originalUrl} n'existe pas`,
   });
 });
 
-// Middleware de gestion d'erreurs
-app.use(errorHandler);
+const PORT = process.env.PORT || 5000;
 
-// Démarrage du serveur
 app.listen(PORT, () => {
-  console.log(`🚀 Serveur LED Platform démarré sur le port ${PORT}`);
-  console.log(`📍 URL: http://localhost:${PORT}`);
-  console.log(`🔗 API: http://localhost:${PORT}/api`);
-  console.log(
-    `💾 Base de données: ${process.env.DATABASE_URL || "SQLite local"}`
-  );
+  console.log(`🚀 Serveur démarré sur le port ${PORT}`);
+  console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`🔗 URL: http://localhost:${PORT}`);
+});
+
+// Gestion propre de l'arrêt
+process.on("SIGTERM", () => {
+  console.log("👋 Arrêt du serveur...");
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  console.log("👋 Arrêt du serveur...");
+  process.exit(0);
 });
 
 module.exports = app;

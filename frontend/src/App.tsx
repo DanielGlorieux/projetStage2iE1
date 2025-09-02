@@ -33,7 +33,7 @@ function App() {
 }
 export default App*/
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { LoginPage } from "./pages/LoginPage";
 import { Sidebar } from "./pages/Sidebar";
 import { Dashboard } from "./pages/Dashboard";
@@ -44,8 +44,10 @@ import { Settings } from "./pages/Settings";
 import { ActivitySubmission } from "./pages/ActivitySubmission";
 import { ActivityValidation } from "./pages/ActivityValidation";
 //import { SettingsProvider } from "./contexts/SettingsContext";
-
+import { testConnection } from "./services/api";
 export type UserRole = "student" | "led_team" | "supervisor";
+
+console.log("🚀 App.tsx loaded");
 
 export interface User {
   id: string;
@@ -55,6 +57,31 @@ export interface User {
 }
 
 export default function App() {
+  console.log("🎯 App component rendered");
+  const [connectionStatus, setConnectionStatus] = useState<
+    "loading" | "connected" | "error"
+  >("loading");
+
+  useEffect(() => {
+    // Test de connexion au démarrage
+    testConnection()
+      .then(() => {
+        setConnectionStatus("connected");
+        console.log("✅ Backend connecté");
+      })
+      .catch((error) => {
+        setConnectionStatus("error");
+        console.error("❌ Backend non accessible:", error);
+      });
+  }, []);
+
+  // Debug des URLs
+  console.log("Frontend URL:", window.location.origin);
+  console.log(
+    "API URL:",
+    import.meta.env.VITE_API_URL || "http://localhost:5000/api"
+  );
+
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState("dashboard");
 

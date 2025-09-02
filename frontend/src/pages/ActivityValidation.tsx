@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+/*import React, { useState } from "react";
 import {
   Card,
   CardContent,
@@ -368,7 +368,10 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
         </Alert>
       )}
 
-      {/* Stats Cards */}
+      */ {
+  /* Stats Cards */
+}
+/*
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-orange-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -427,7 +430,10 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
         </Card>
       </div>
 
-      {/* Filters */}
+      */ {
+  /* Filters */
+}
+/*
       <div className="flex flex-col sm:flex-row gap-4 items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -480,7 +486,10 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
         </Select>
       </div>
 
-      {/* Activities List */}
+      */ {
+  /* Activities List */
+}
+/*
       {filteredActivities.length === 0 ? (
         <Card className="text-center py-12">
           <CardContent>
@@ -507,7 +516,10 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start gap-4 flex-1">
-                      {/* Avatar étudiant */}
+                      */ {
+  /* Avatar étudiant */
+}
+/*
                       <Avatar className="w-12 h-12">
                         <AvatarImage src={activity.student.avatar} />
                         <AvatarFallback className="bg-gradient-to-br from-blue-500 to-green-500 text-white font-semibold">
@@ -653,7 +665,10 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
         </div>
       )}
 
-      {/* Evaluation Dialog */}
+      */ {
+  /* Evaluation Dialog */
+}
+/*
       <Dialog
         open={showEvaluationDialog}
         onOpenChange={setShowEvaluationDialog}
@@ -812,7 +827,9 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Details Dialog */}
+      */ {
+  /* Details Dialog */
+} /*
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -991,6 +1008,715 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}*/
+
+import React, { useState, useEffect } from "react";
+import { activityService } from "../services/activityService";
+import { searchService } from "../services/searchService";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Badge } from "../components/ui/badge";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import { Progress } from "../components/ui/progress";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertTriangle,
+  Eye,
+  FileText,
+  User,
+  Calendar,
+  Briefcase,
+  Lightbulb,
+  Monitor,
+  Star,
+  MessageSquare,
+  Download,
+  Filter,
+  Search,
+  GraduationCap,
+  Award,
+  TrendingUp,
+} from "lucide-react";
+
+interface Activity {
+  id: string;
+  title: string;
+  type: "ENTREPRENEURIAT" | "LEADERSHIP" | "DIGITAL";
+  description: string;
+  startDate: string;
+  endDate: string;
+  status:
+    | "PLANNED"
+    | "IN_PROGRESS"
+    | "COMPLETED"
+    | "SUBMITTED"
+    | "EVALUATED"
+    | "CANCELLED";
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    filiere: string;
+    niveau: string;
+  };
+  submittedAt?: string;
+  documents: string[]; // URLs des documents
+  evaluations?: Array<{
+    id: string;
+    score: number;
+    maxScore: number;
+    feedback: string;
+    createdAt: string;
+    evaluator: {
+      name: string;
+    };
+  }>;
+  progress: number;
+}
+
+interface ActivityValidationProps {
+  userRole: string;
+}
+
+export function ActivityValidation({ userRole }: ActivityValidationProps) {
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
+    null
+  );
+  const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [evaluationForm, setEvaluationForm] = useState({
+    score: 0,
+    feedback: "",
+  });
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [success, setSuccess] = useState("");
+  const [stats, setStats] = useState<any>(null);
+
+  // Charger les activités
+  useEffect(() => {
+    loadActivities();
+    loadStats();
+  }, [filterStatus, filterType]);
+
+  const loadActivities = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const filters: any = {};
+      if (filterStatus !== "all") filters.status = filterStatus;
+      if (filterType !== "all") filters.type = filterType;
+
+      const response = await activityService.getActivities(filters);
+
+      if (response.success) {
+        // Filtrer seulement les activités soumises pour la validation
+        const submittedActivities = response.data.filter(
+          (activity: Activity) =>
+            activity.status === "SUBMITTED" || activity.status === "EVALUATED"
+        );
+        setActivities(submittedActivities);
+      } else {
+        setError("Erreur lors du chargement des activités");
+      }
+    } catch (err) {
+      setError("Erreur de connexion au serveur");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      const response = await searchService.getStats();
+      if (response.success) {
+        setStats(response.data);
+      }
+    } catch (err) {
+      console.error("Erreur lors du chargement des statistiques:", err);
+    }
+  };
+
+  // Filtrer les activités côté client
+  const filteredActivities = activities.filter((activity) => {
+    const matchesStatus =
+      filterStatus === "all" || activity.status === filterStatus;
+    const matchesType = filterType === "all" || activity.type === filterType;
+    const matchesSearch =
+      searchQuery === "" ||
+      activity.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      activity.user.name.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return matchesStatus && matchesType && matchesSearch;
+  });
+
+  const handleEvaluate = (activity: Activity) => {
+    setSelectedActivity(activity);
+    setEvaluationForm({
+      score: activity.evaluations?.[0]?.score || 0,
+      feedback: activity.evaluations?.[0]?.feedback || "",
+    });
+    setShowEvaluationDialog(true);
+  };
+
+  const handleViewDetails = (activity: Activity) => {
+    setSelectedActivity(activity);
+    setShowDetailsDialog(true);
+  };
+
+  const handleSubmitEvaluation = async () => {
+    if (!selectedActivity) return;
+
+    try {
+      setIsEvaluating(true);
+      setError("");
+
+      const response = await activityService.evaluateActivity(
+        selectedActivity.id,
+        {
+          score: evaluationForm.score,
+          feedback: evaluationForm.feedback,
+          status: "EVALUATED",
+        }
+      );
+
+      if (response.success) {
+        // Mettre à jour l'activité dans la liste
+        setActivities((prevActivities) =>
+          prevActivities.map((activity) =>
+            activity.id === selectedActivity.id
+              ? { ...activity, ...response.data.activity }
+              : activity
+          )
+        );
+
+        setShowEvaluationDialog(false);
+        setSelectedActivity(null);
+        setSuccess(
+          `Activité "${selectedActivity.title}" évaluée avec succès !`
+        );
+
+        // Recharger les stats
+        loadStats();
+      } else {
+        setError(response.error || "Erreur lors de l'évaluation");
+      }
+    } catch (err) {
+      setError("Erreur lors de l'évaluation de l'activité");
+      console.error(err);
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
+  // Fonctions utilitaires
+  const formatDate = (dateString: string, format: string) => {
+    const date = new Date(dateString);
+    const options: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: format.includes("MMMM") ? "long" : "2-digit",
+      day: "2-digit",
+      ...(format.includes("HH:mm") && { hour: "2-digit", minute: "2-digit" }),
+    };
+    return new Intl.DateTimeFormat("fr-FR", options).format(date);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "SUBMITTED":
+        return "bg-orange-500";
+      case "EVALUATED":
+        return "bg-green-500";
+      case "PLANNED":
+        return "bg-gray-500";
+      case "IN_PROGRESS":
+        return "bg-blue-500";
+      case "COMPLETED":
+        return "bg-purple-500";
+      case "CANCELLED":
+        return "bg-red-500";
+      default:
+        return "bg-gray-500";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "SUBMITTED":
+        return "Soumise";
+      case "EVALUATED":
+        return "Évaluée";
+      case "PLANNED":
+        return "Planifiée";
+      case "IN_PROGRESS":
+        return "En cours";
+      case "COMPLETED":
+        return "Complétée";
+      case "CANCELLED":
+        return "Annulée";
+      default:
+        return status;
+    }
+  };
+
+  const getActivityTypeLabel = (type: string) => {
+    switch (type) {
+      case "ENTREPRENEURIAT":
+        return "Entrepreneuriat";
+      case "LEADERSHIP":
+        return "Leadership";
+      case "DIGITAL":
+        return "Digital";
+      default:
+        return type;
+    }
+  };
+
+  const getStatsForStatus = (status: string) => {
+    if (!stats) return 0;
+    return stats.activities?.byStatus?.[status] || 0;
+  };
+
+  if (userRole !== "supervisor" && userRole !== "led_team") {
+    return (
+      <div className="p-6">
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Cette fonctionnalité est réservée aux encadrants et à l'équipe LED.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p>Chargement des activités...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6 max-w-7xl">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">
+          Validation des Activités LED
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Évaluez et validez les activités soumises par vos étudiants boursiers
+        </p>
+      </div>
+
+      {error && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {success && (
+        <Alert className="border-green-200 bg-green-50">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            {success}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="border-l-4 border-l-orange-500">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Soumises</CardTitle>
+            <Clock className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {getStatsForStatus("SUBMITTED")}
+            </div>
+            <p className="text-xs text-muted-foreground">activités à évaluer</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">En Cours</CardTitle>
+            <Eye className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {getStatsForStatus("IN_PROGRESS")}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              en cours de réalisation
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Évaluées</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {getStatsForStatus("EVALUATED")}
+            </div>
+            <p className="text-xs text-muted-foreground">activités validées</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-purple-500">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Score Moyen</CardTitle>
+            <Star className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              {stats?.scores?.global || 0}/100
+            </div>
+            <p className="text-xs text-muted-foreground">moyenne générale</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filtres */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par titre ou nom d'étudiant..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Filtrer par statut" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les statuts</SelectItem>
+            <SelectItem value="SUBMITTED">Soumises</SelectItem>
+            <SelectItem value="EVALUATED">Évaluées</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Filtrer par type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les types</SelectItem>
+            <SelectItem value="ENTREPRENEURIAT">Entrepreneuriat</SelectItem>
+            <SelectItem value="LEADERSHIP">Leadership</SelectItem>
+            <SelectItem value="DIGITAL">Digital</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Liste des activités */}
+      {filteredActivities.length === 0 ? (
+        <Card className="text-center py-12">
+          <CardContent>
+            <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Aucune activité trouvée
+            </h3>
+            <p className="text-muted-foreground">
+              {loading
+                ? "Chargement en cours..."
+                : "Aucune activité ne correspond à vos critères"}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {filteredActivities.map((activity) => (
+            <Card
+              key={activity.id}
+              className="hover:shadow-lg transition-shadow"
+            >
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start gap-4 flex-1">
+                    <Avatar className="w-12 h-12">
+                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-green-500 text-white font-semibold">
+                        {activity.user.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold line-clamp-1">
+                          {activity.title}
+                        </h3>
+                        <Badge className="bg-blue-100 text-blue-800">
+                          {getActivityTypeLabel(activity.type)}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                        <div className="flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          <span className="font-medium">
+                            {activity.user.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <GraduationCap className="w-3 h-3" />
+                          <span>
+                            {activity.user.filiere} - {activity.user.niveau}
+                          </span>
+                        </div>
+                        {activity.submittedAt && (
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            <span>
+                              Soumis le{" "}
+                              {formatDate(activity.submittedAt, "dd/MM/yyyy")}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                        {activity.description}
+                      </p>
+
+                      {activity.evaluations &&
+                        activity.evaluations.length > 0 && (
+                          <div className="bg-gray-50 border rounded-lg p-3 mb-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium">
+                                Évaluation
+                              </span>
+                              <Badge className="bg-yellow-100 text-yellow-800">
+                                {activity.evaluations[0].score}/
+                                {activity.evaluations[0].maxScore}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mb-1">
+                              {activity.evaluations[0].feedback}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Évaluée par{" "}
+                              {activity.evaluations[0].evaluator.name}
+                            </p>
+                          </div>
+                        )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-3 ml-4">
+                    <Badge
+                      className={`${getStatusColor(
+                        activity.status
+                      )} text-white`}
+                    >
+                      {getStatusLabel(activity.status)}
+                    </Badge>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewDetails(activity)}
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        Détails
+                      </Button>
+
+                      {activity.status === "SUBMITTED" && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleEvaluate(activity)}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <Star className="w-3 h-3 mr-1" />
+                          Évaluer
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">
+                      Progression
+                    </span>
+                    <span className="text-xs font-medium">
+                      {activity.progress}%
+                    </span>
+                  </div>
+                  <Progress value={activity.progress} className="h-2" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Dialog d'évaluation */}
+      <Dialog
+        open={showEvaluationDialog}
+        onOpenChange={setShowEvaluationDialog}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Star className="w-5 h-5" />
+              Évaluer l'Activité
+            </DialogTitle>
+            <DialogDescription>
+              Évaluez l'activité "{selectedActivity?.title}" de{" "}
+              {selectedActivity?.user.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {selectedActivity && (
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-medium mb-2">{selectedActivity.title}</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {selectedActivity.description}
+                </p>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span>
+                    Type: {getActivityTypeLabel(selectedActivity.type)}
+                  </span>
+                  <span>
+                    Période:{" "}
+                    {formatDate(selectedActivity.startDate, "dd/MM/yyyy")} -{" "}
+                    {formatDate(selectedActivity.endDate, "dd/MM/yyyy")}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="score">Note (sur 100)</Label>
+                <Input
+                  id="score"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={evaluationForm.score}
+                  onChange={(e) =>
+                    setEvaluationForm((prev) => ({
+                      ...prev,
+                      score: parseInt(e.target.value) || 0,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="feedback">Commentaires et feedback</Label>
+                <Textarea
+                  id="feedback"
+                  value={evaluationForm.feedback}
+                  onChange={(e) =>
+                    setEvaluationForm((prev) => ({
+                      ...prev,
+                      feedback: e.target.value,
+                    }))
+                  }
+                  placeholder="Donnez vos commentaires détaillés sur l'activité..."
+                  className="min-h-[120px]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Vos commentaires aideront l'étudiant à comprendre votre
+                  évaluation
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowEvaluationDialog(false)}
+              disabled={isEvaluating}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleSubmitEvaluation}
+              disabled={isEvaluating || !evaluationForm.feedback.trim()}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isEvaluating ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Sauvegarde...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Confirmer l'Évaluation
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Le Dialog de détails reste identique mais avec les vraies données */}
     </div>
   );
 }

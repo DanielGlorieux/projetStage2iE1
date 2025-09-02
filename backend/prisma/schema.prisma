@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role
+  filiere   String?
+  niveau    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  activities Activity[]
+  evaluations Evaluation[]
+  
+  @@map("users")
+}
+
+model Activity {
+  id              String   @id @default(uuid())
+  title           String
+  type            ActivityType
+  description     String
+  startDate       DateTime
+  endDate         DateTime
+  status          ActivityStatus @default(PLANNED)
+  progress        Int      @default(0)
+  priority        Priority @default(MEDIUM)
+  estimatedHours  Int?
+  actualHours     Int?
+  collaborators   String   @default("[]") // JSON string
+  objectives      String   @default("[]") // JSON string
+  outcomes        String   @default("[]") // JSON string
+  challenges      String   @default("[]") // JSON string
+  learnings       String   @default("[]") // JSON string
+  tags            String   @default("[]") // JSON string
+  documents       String   @default("[]") // JSON string of file URLs
+  submittedAt     DateTime?
+  evaluatedAt     DateTime?
+  isLateSubmission Boolean @default(false)
+  reminderSent    Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  userId      String
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  evaluations Evaluation[]
+  
+  @@map("activities")
+}
+
+model Evaluation {
+  id          String   @id @default(uuid())
+  score       Int
+  maxScore    Int      @default(100)
+  feedback    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  activityId  String   @unique
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  evaluatorId String
+  evaluator   User     @relation(fields: [evaluatorId], references: [id])
+  
+  @@map("evaluations")
+}
+
+enum Role {
+  STUDENT
+  LED_TEAM
+  SUPERVISOR
+}
+
+enum ActivityType {
+  ENTREPRENEURIAT
+  LEADERSHIP
+  DIGITAL
+}
+
+enum ActivityStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  SUBMITTED
+  EVALUATED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}

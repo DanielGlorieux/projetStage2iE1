@@ -2451,25 +2451,6 @@ import { activityService, Activity } from "../services/activityService";
 //import { useApi } from "../hooks/useApi";
 import { useApi } from "../hooks/useApi";
 
-const [formData, setFormData] = useState({
-  title: "",
-  type: "" as "entrepreneuriat" | "leadership" | "digital" | "",
-  description: "",
-  startDate: undefined as Date | undefined,
-  endDate: undefined as Date | undefined,
-  status: "planned" as Activity["status"],
-  documents: [] as File[],
-  priority: "medium" as "low" | "medium" | "high",
-  estimatedHours: 0,
-  actualHours: 0,
-  collaborators: [] as string[],
-  objectives: [""] as string[],
-  outcomes: [""] as string[],
-  challenges: [""] as string[],
-  learnings: [""] as string[],
-  tags: [] as string[],
-});
-
 interface ActivitySubmissionProps {
   userRole: string;
 }
@@ -2491,6 +2472,25 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
   // État pour les fichiers sélectionnés
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
+
+  const [formData, setFormData] = useState({
+    title: "",
+    type: "" as "entrepreneuriat" | "leadership" | "digital" | "",
+    description: "",
+    startDate: undefined as Date | undefined,
+    endDate: undefined as Date | undefined,
+    status: "planned" as Activity["status"],
+    documents: [] as File[],
+    priority: "medium" as "low" | "medium" | "high",
+    estimatedHours: 0,
+    actualHours: 0,
+    collaborators: [] as string[],
+    objectives: [""] as string[],
+    outcomes: [""] as string[],
+    challenges: [""] as string[],
+    learnings: [""] as string[],
+    tags: [] as string[],
+  });
 
   // Gestion de la sélection de fichiers améliorée
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
