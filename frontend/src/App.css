@@ -8,3 +8,21 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Ajouter ces styles pour améliorer les transitions */
+
+@media (max-width: 1024px) {
+  .sidebar-overlay {
+    backdrop-filter: blur(2px);
+  }
+}
+
+/* Améliorer les transitions pour les animations */
+.sidebar-transition {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Style pour empêcher le scroll body quand sidebar ouverte sur mobile */
+.sidebar-open {
+  overflow: hidden;
+}

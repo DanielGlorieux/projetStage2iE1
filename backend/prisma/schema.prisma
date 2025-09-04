@@ -31,9 +31,9 @@ model Activity {
   description     String
   startDate       DateTime
   endDate         DateTime
-  status          ActivityStatus @default(PLANNED)
+  status          ActivityStatus @default(planned)      // ✅ Minuscules
   progress        Int      @default(0)
-  priority        Priority @default(MEDIUM)
+  priority        Priority @default(medium)             // ✅ Minuscules
   estimatedHours  Int?
   actualHours     Int?
   collaborators   String   @default("[]") // JSON string
@@ -74,28 +74,28 @@ model Evaluation {
 }
 
 enum Role {
-  STUDENT
-  LED_TEAM
-  SUPERVISOR
+  student
+  led_team
+  supervisor
 }
 
 enum ActivityType {
-  ENTREPRENEURIAT
-  LEADERSHIP
-  DIGITAL
+  entrepreneuriat
+  leadership
+  digital
 }
 
 enum ActivityStatus {
-  PLANNED
-  IN_PROGRESS
-  COMPLETED
-  SUBMITTED
-  EVALUATED
-  CANCELLED
+  planned
+  in_progress
+  completed
+  submitted
+  evaluated
+  cancelled
 }
 
 enum Priority {
-  LOW
-  MEDIUM
-  HIGH
+  low
+  medium
+  high
 }

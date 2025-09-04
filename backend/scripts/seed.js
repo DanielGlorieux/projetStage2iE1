@@ -16,7 +16,7 @@ async function main() {
       email: "admin@2ie-edu.org",
       password: adminPassword,
       name: "Administrateur LED",
-      role: "LED_TEAM",
+      role: "led_team", // ✅ Minuscules
     },
   });
 
@@ -32,7 +32,7 @@ async function main() {
       email: "supervisor@2ie-edu.org",
       password: supervisorPassword,
       name: "Dr. Superviseur LED",
-      role: "SUPERVISOR",
+      role: "supervisor", // ✅ Minuscules
     },
   });
 
@@ -49,7 +49,7 @@ async function main() {
         email: "daniel.ilboudo@2ie-edu.org",
         password: studentPassword,
         name: "Daniel ILBOUDO",
-        role: "STUDENT",
+        role: "student", // ✅ Minuscules
         filiere: "Génie Civil",
         niveau: "M1",
       },
@@ -61,7 +61,7 @@ async function main() {
         email: "jean.martin.et@2ie-edu.org",
         password: studentPassword,
         name: "Jean MARTIN",
-        role: "STUDENT",
+        role: "student", // ✅ Minuscules
         filiere: "Informatique",
         niveau: "M2",
       },
@@ -73,7 +73,7 @@ async function main() {
         email: "fatou.diop.et@2ie-edu.org",
         password: studentPassword,
         name: "Fatou DIOP",
-        role: "STUDENT",
+        role: "student", // ✅ Minuscules
         filiere: "Eau et Assainissement",
         niveau: "M1",
       },
@@ -82,18 +82,18 @@ async function main() {
 
   console.log("✅ Étudiants créés:", students.length);
 
-  // Créer quelques activités exemples
+  // Créer quelques activités exemples avec les nouveaux enums
   const activities = await Promise.all([
     prisma.activity.create({
       data: {
         title: "Création d'une startup tech",
-        type: "ENTREPRENEURIAT",
+        type: "entrepreneuriat", // ✅ Minuscules
         description:
-          "Développement d'une application mobile pour la gestion des déchets urbains. Cette activité comprend l'élaboration du business plan, la recherche de financement et le développement du MVP.",
+          "Développement d'une application mobile pour la gestion des déchets urbains...",
         startDate: new Date("2024-01-15"),
         endDate: new Date("2024-03-15"),
-        status: "COMPLETED",
-        priority: "HIGH",
+        status: "completed", // ✅ Minuscules
+        priority: "high", // ✅ Minuscules
         progress: 100,
         estimatedHours: 120,
         actualHours: 140,
@@ -125,13 +125,12 @@ async function main() {
     prisma.activity.create({
       data: {
         title: "Organisation d'un hackathon étudiant",
-        type: "LEADERSHIP",
-        description:
-          "Coordination et organisation d'un hackathon de 48h sur le thème du développement durable. Gestion d'une équipe de 15 bénévoles et accueil de 100 participants.",
+        type: "leadership", // ✅ Minuscules
+        description: "Coordination et organisation d'un hackathon de 48h...",
         startDate: new Date("2024-02-01"),
         endDate: new Date("2024-04-30"),
-        status: "IN_PROGRESS",
-        priority: "MEDIUM",
+        status: "in_progress", // ✅ Minuscules
+        priority: "medium", // ✅ Minuscules
         progress: 75,
         estimatedHours: 80,
         actualHours: 65,
@@ -162,13 +161,12 @@ async function main() {
     prisma.activity.create({
       data: {
         title: "Développement d'une plateforme IoT",
-        type: "DIGITAL",
-        description:
-          "Conception et développement d'une plateforme IoT pour le monitoring de la qualité de l'eau en temps réel. Utilisation de capteurs connectés et interface web.",
+        type: "digital", // ✅ Minuscules
+        description: "Conception et développement d'une plateforme IoT...",
         startDate: new Date("2024-03-01"),
         endDate: new Date("2024-06-30"),
-        status: "PLANNED",
-        priority: "HIGH",
+        status: "planned", // ✅ Minuscules
+        priority: "high", // ✅ Minuscules
         progress: 0,
         estimatedHours: 150,
         objectives: JSON.stringify([
@@ -193,8 +191,7 @@ async function main() {
       data: {
         score: 85,
         maxScore: 100,
-        feedback:
-          "Excellent travail sur la startup. Le MVP est fonctionnel et l'analyse de marché est pertinente. Quelques améliorations possibles sur la stratégie de financement.",
+        feedback: "Excellent travail sur la startup...",
         activityId: activities[0].id,
         evaluatorId: supervisor.id,
       },
@@ -207,7 +204,7 @@ async function main() {
   await prisma.activity.update({
     where: { id: activities[0].id },
     data: {
-      status: "EVALUATED",
+      status: "evaluated", // ✅ Minuscules
       evaluatedAt: new Date(),
     },
   });

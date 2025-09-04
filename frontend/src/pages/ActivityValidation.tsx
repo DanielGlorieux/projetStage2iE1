@@ -1073,20 +1073,9 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-interface Activity {
-  id: string;
-  title: string;
-  type: "ENTREPRENEURIAT" | "LEADERSHIP" | "DIGITAL";
-  description: string;
-  startDate: string;
-  endDate: string;
-  status:
-    | "PLANNED"
-    | "IN_PROGRESS"
-    | "COMPLETED"
-    | "SUBMITTED"
-    | "EVALUATED"
-    | "CANCELLED";
+import { Activity as ServiceActivity } from "../services/activityService";
+
+interface Activity extends ServiceActivity {
   user: {
     id: string;
     name: string;
@@ -1094,18 +1083,6 @@ interface Activity {
     filiere: string;
     niveau: string;
   };
-  submittedAt?: string;
-  documents: string[]; // URLs des documents
-  evaluations?: Array<{
-    id: string;
-    score: number;
-    maxScore: number;
-    feedback: string;
-    createdAt: string;
-    evaluator: {
-      name: string;
-    };
-  }>;
   progress: number;
 }
 
@@ -1150,11 +1127,11 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
 
       const response = await activityService.getActivities(filters);
 
-      if (response.success) {
+      if (response.success && response.data) {
         // Filtrer seulement les activités soumises pour la validation
         const submittedActivities = response.data.filter(
-          (activity: Activity) =>
-            activity.status === "SUBMITTED" || activity.status === "EVALUATED"
+          (activity: ServiceActivity) =>
+            activity.status === "submitted" || activity.status === "evaluated"
         );
         setActivities(submittedActivities);
       } else {
