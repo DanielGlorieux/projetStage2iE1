@@ -45,7 +45,8 @@ import { ActivitySubmission } from "./pages/ActivitySubmission";
 import { ActivityValidation } from "./pages/ActivityValidation";
 import { Header } from "./components/ui/Header";
 import { testConnection } from "./services/api";
-import { useSidebar } from "./hooks/useSidebar"; // ✅ Import ajouté
+import { useSidebar } from "./hooks/useSidebar";
+import { Profile } from "./pages/Profile";
 
 export type UserRole = "student" | "led_team" | "supervisor";
 
@@ -124,6 +125,8 @@ export default function App() {
     switch (currentView) {
       case "dashboard":
         return <Dashboard userRole={user.role} />;
+      case "profile":
+        return <Profile userRole={user.role} />;
       case "scholars":
         return <ScholarManagement userRole={user.role} />;
       case "reports":

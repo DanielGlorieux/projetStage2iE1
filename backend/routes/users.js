@@ -1,11 +1,175 @@
 const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const { body, param, validationResult } = require("express-validator");
-const { authorize } = require("../middleware/auth");
+const { authorize, authenticate } = require("../middleware/auth");
 const bcrypt = require("bcryptjs");
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+router.use(authenticate);
+
+// GET /api/users/me - Récupérer le profil de l'utilisateur connecté
+router.get("/me", async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        filiere: true,
+        niveau: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "Utilisateur non trouvé",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error("Erreur lors de la récupération du profil:", error);
+    res.status(500).json({
+      success: false,
+      error: "Erreur lors de la récupération du profil",
+    });
+  }
+});
+
+// PUT /api/users/me - Mettre à jour le profil de l'utilisateur connecté
+router.put("/me", async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { name, filiere, niveau } = req.body;
+
+    // Validation basique
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Le nom est requis",
+      });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: name.trim(),
+        filiere: filiere || null,
+        niveau: niveau || null,
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        filiere: true,
+        niveau: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: updatedUser,
+      message: "Profil mis à jour avec succès",
+    });
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du profil:", error);
+    res.status(500).json({
+      success: false,
+      error: "Erreur lors de la mise à jour du profil",
+    });
+  }
+});
+
+// PUT /api/users/password - Changer le mot de passe
+router.put(
+  "/password",
+  authenticate,
+  [
+    body("currentPassword")
+      .notEmpty()
+      .withMessage("Le mot de passe actuel est requis"),
+    body("newPassword")
+      .isLength({ min: 6 })
+      .withMessage(
+        "Le nouveau mot de passe doit contenir au moins 6 caractères"
+      ),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: "Données invalides",
+          details: errors.array(),
+        });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+
+      // Récupérer l'utilisateur avec son mot de passe
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.userId },
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: "Utilisateur non trouvé",
+        });
+      }
+
+      // Vérifier le mot de passe actuel
+      const isCurrentPasswordValid = await bcrypt.compare(
+        currentPassword,
+        user.password
+      );
+
+      if (!isCurrentPasswordValid) {
+        return res.status(400).json({
+          success: false,
+          error: "Mot de passe actuel incorrect",
+        });
+      }
+
+      // Hasher le nouveau mot de passe
+      const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+
+      // Mettre à jour le mot de passe
+      await prisma.user.update({
+        where: { id: req.user.userId },
+        data: { password: hashedNewPassword },
+      });
+
+      res.json({
+        success: true,
+        message: "Mot de passe modifié avec succès",
+      });
+    } catch (error) {
+      console.error("Erreur changement mot de passe:", error);
+      res.status(500).json({
+        success: false,
+        error: "Erreur serveur",
+      });
+    }
+  }
+);
 
 // GET /api/users - Récupérer tous les utilisateurs (superviseurs uniquement)
 router.get("/", authorize("LED_TEAM", "SUPERVISOR"), async (req, res, next) => {
