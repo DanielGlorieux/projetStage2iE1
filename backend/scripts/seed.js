@@ -16,7 +16,7 @@ async function main() {
       email: "admin@2ie-edu.org",
       password: adminPassword,
       name: "Administrateur LED",
-      role: "led_team", // ✅ Minuscules
+      role: "led_team",
     },
   });
 
@@ -32,7 +32,7 @@ async function main() {
       email: "supervisor@2ie-edu.org",
       password: supervisorPassword,
       name: "Dr. Superviseur LED",
-      role: "supervisor", // ✅ Minuscules
+      role: "supervisor",
     },
   });
 
@@ -49,7 +49,7 @@ async function main() {
         email: "daniel.ilboudo@2ie-edu.org",
         password: studentPassword,
         name: "Daniel ILBOUDO",
-        role: "student", // ✅ Minuscules
+        role: "student",
         filiere: "Génie Civil",
         niveau: "M1",
       },
@@ -61,7 +61,7 @@ async function main() {
         email: "jean.martin.et@2ie-edu.org",
         password: studentPassword,
         name: "Jean MARTIN",
-        role: "student", // ✅ Minuscules
+        role: "student",
         filiere: "Informatique",
         niveau: "M2",
       },
@@ -73,7 +73,7 @@ async function main() {
         email: "fatou.diop.et@2ie-edu.org",
         password: studentPassword,
         name: "Fatou DIOP",
-        role: "student", // ✅ Minuscules
+        role: "student",
         filiere: "Eau et Assainissement",
         niveau: "M1",
       },
@@ -87,13 +87,13 @@ async function main() {
     prisma.activity.create({
       data: {
         title: "Création d'une startup tech",
-        type: "entrepreneuriat", // ✅ Minuscules
+        type: "entrepreneuriat",
         description:
           "Développement d'une application mobile pour la gestion des déchets urbains...",
         startDate: new Date("2024-01-15"),
         endDate: new Date("2024-03-15"),
-        status: "completed", // ✅ Minuscules
-        priority: "high", // ✅ Minuscules
+        status: "completed",
+        priority: "high",
         progress: 100,
         estimatedHours: 120,
         actualHours: 140,
@@ -125,12 +125,12 @@ async function main() {
     prisma.activity.create({
       data: {
         title: "Organisation d'un hackathon étudiant",
-        type: "leadership", // ✅ Minuscules
+        type: "leadership",
         description: "Coordination et organisation d'un hackathon de 48h...",
         startDate: new Date("2024-02-01"),
         endDate: new Date("2024-04-30"),
-        status: "in_progress", // ✅ Minuscules
-        priority: "medium", // ✅ Minuscules
+        status: "in_progress",
+        priority: "medium",
         progress: 75,
         estimatedHours: 80,
         actualHours: 65,

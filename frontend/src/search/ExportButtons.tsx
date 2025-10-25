@@ -1,8 +1,12 @@
 import React from "react";
-//import { StudentResult } from "../../types";
 import { Button } from "../components/ui/button";
-import { exportToCSV, exportToPDF, exportToExcel } from "../utils/export";
-import { Download, FileSpreadsheet, FileImage, FileText } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
+import { Download, FileText, FileSpreadsheet, File } from "lucide-react";
 
 interface StudentResult {
   id: string;
@@ -20,12 +24,6 @@ interface StudentResult {
     leadership: number;
     digital: number;
   };
-  activitesRecentes: Array<{
-    titre: string;
-    type: string;
-    score?: number;
-    dateSubmission: string;
-  }>;
 }
 
 interface ExportButtonsProps {
@@ -37,32 +35,43 @@ export function ExportButtons({
   searchResults,
   selectedStudents,
 }: ExportButtonsProps) {
+  const handleExport = (format: "csv" | "excel" | "pdf") => {
+    const dataToExport =
+      selectedStudents.length > 0
+        ? searchResults.filter((student) =>
+            selectedStudents.includes(student.id)
+          )
+        : searchResults;
+
+    // TODO: Implémenter l'export via le service
+    console.log(`Export ${format} de ${dataToExport.length} étudiants`);
+  };
+
   return (
-    <div className="flex gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => exportToCSV(searchResults, selectedStudents)}
-      >
-        <FileText className="w-4 h-4 mr-2" />
-        CSV
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => exportToExcel(searchResults, selectedStudents)}
-      >
-        <FileSpreadsheet className="w-4 h-4 mr-2" />
-        Excel
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => exportToPDF(searchResults, selectedStudents)}
-      >
-        <FileImage className="w-4 h-4 mr-2" />
-        PDF
-      </Button>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Download className="w-4 h-4 mr-2" />
+          Exporter
+          {selectedStudents.length > 0 && (
+            <span className="ml-1 text-xs">({selectedStudents.length})</span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => handleExport("csv")}>
+          <FileText className="w-4 h-4 mr-2" />
+          CSV
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleExport("excel")}>
+          <FileSpreadsheet className="w-4 h-4 mr-2" />
+          Excel
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleExport("pdf")}>
+          <File className="w-4 h-4 mr-2" />
+          PDF
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

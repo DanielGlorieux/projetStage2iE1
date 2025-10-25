@@ -155,6 +155,68 @@ export const userService = {
     return await apiClient.get(url);
   },
 
+  // Récupérer tous les étudiants (pour les admins/superviseurs)
+  getScholars: async (filters?: {
+    search?: string;
+    filiere?: string;
+    niveau?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    data?: any;
+    error?: string;
+    pagination?: any;
+  }> => {
+    try {
+      let url = "/users/scholars";
+      const params = new URLSearchParams();
+
+      if (filters?.search) params.append("search", filters.search);
+      if (filters?.filiere) params.append("filiere", filters.filiere);
+      if (filters?.niveau) params.append("niveau", filters.niveau);
+      if (filters?.page) params.append("page", filters.page.toString());
+      if (filters?.limit) params.append("limit", filters.limit.toString());
+
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
+      const API_BASE_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(`${API_BASE_URL}${url}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `HTTP ${response.status}: ${response.statusText}`
+        );
+      }
+
+      const result = await response.json();
+
+      return {
+        success: true,
+        data: result.data,
+        pagination: result.pagination,
+      };
+    } catch (error) {
+      console.error("Erreur lors de la récupération des étudiants:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Erreur inconnue",
+      };
+    }
+  },
+
   // Récupérer un utilisateur spécifique
   getUserById: async (
     id: string

@@ -477,8 +477,9 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
   );
 }*/
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { UserRole } from "../App";
+import { userService } from "../services/users";
 import {
   Card,
   CardContent,
@@ -487,16 +488,9 @@ import {
   CardTitle,
 } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
+import { Badge } from "../components/ui/badge";
+import { Progress } from "../components/ui/progress";
 import {
   Table,
   TableBody,
@@ -506,384 +500,175 @@ import {
   TableRow,
 } from "../components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "../components/ui/dialog";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../components/ui/tabs";
-import { Progress } from "../components/ui/progress";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { Alert, AlertDescription } from "../components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import {
   Users,
   Search,
   Filter,
+  Download,
   Eye,
   Edit,
-  UserPlus,
-  Mail,
-  Phone,
-  MapPin,
-  GraduationCap,
-  TrendingUp,
   AlertTriangle,
   CheckCircle,
-  Calendar,
-  FileText,
-  Award,
   Clock,
+  GraduationCap,
+  TrendingUp,
+  FileText,
 } from "lucide-react";
 
 interface ScholarManagementProps {
   userRole: UserRole;
 }
 
-// Interface pour les données des étudiants
 interface Scholar {
   id: string;
   name: string;
   email: string;
   filiere: string;
   niveau: string;
-  scoreGlobal: number;
-  rapportsSoumis: number;
-  rapportsTotal: number;
-  activitesEnCours: number;
-  statut: "actif" | "suspendu" | "diplome";
-  dernierAcces: string;
-  prochaineDue: string;
-  alertes: number;
+  createdAt: string;
+  stats: {
+    totalActivities: number;
+    completedActivities: number;
+    completionRate: number;
+    scores: {
+      entrepreneuriat: number;
+      leadership: number;
+      digital: number;
+    };
+    globalScore: number;
+  };
 }
 
-// Données de démonstration
-const mockScholars: Scholar[] = [
-  {
-    id: "1",
-    name: "Marie SANOGO",
-    email: "marie.sanogo.et@2ie-edu.org",
-    filiere: "Informatique",
-    niveau: "Master 1",
-    scoreGlobal: 92,
-    rapportsSoumis: 18,
-    rapportsTotal: 20,
-    activitesEnCours: 2,
-    statut: "actif",
-    dernierAcces: "2025-08-18",
-    prochaineDue: "2025-08-25",
-    alertes: 0,
-  },
-  {
-    id: "2",
-    name: "Aminata KONE",
-    email: "aminata.kone.et@2ie-edu.org",
-    filiere: "Génie Civil",
-    niveau: "Master 2",
-    scoreGlobal: 65,
-    rapportsSoumis: 12,
-    rapportsTotal: 20,
-    activitesEnCours: 5,
-    statut: "actif",
-    dernierAcces: "2025-08-15",
-    prochaineDue: "2025-08-20",
-    alertes: 3,
-  },
-  {
-    id: "3",
-    name: "Ibrahim OUEDRAOGO",
-    email: "ibrahim.ouedraogo.et@2ie-edu.org",
-    filiere: "Électronique",
-    niveau: "Licence 3",
-    scoreGlobal: 88,
-    rapportsSoumis: 16,
-    rapportsTotal: 18,
-    activitesEnCours: 1,
-    statut: "actif",
-    dernierAcces: "2025-08-19",
-    prochaineDue: "2025-08-28",
-    alertes: 0,
-  },
-];
-
 export function ScholarManagement({ userRole }: ScholarManagementProps) {
+  const [scholars, setScholars] = useState<Scholar[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFiliere, setSelectedFiliere] = useState("all");
-  const [selectedStatut, setSelectedStatut] = useState("all");
-  const [selectedScholar, setSelectedScholar] = useState<Scholar | null>(null);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-
-  // Filtrage des étudiants
-  const filteredScholars = mockScholars.filter((scholar) => {
-    const matchesSearch =
-      scholar.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      scholar.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFiliere =
-      selectedFiliere === "all" || scholar.filiere === selectedFiliere;
-    const matchesStatut =
-      selectedStatut === "all" || scholar.statut === selectedStatut;
-
-    return matchesSearch && matchesFiliere && matchesStatut;
+  const [selectedFiliere, setSelectedFiliere] = useState("");
+  const [selectedNiveau, setSelectedNiveau] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    pages: 0,
+    page: 1,
+    limit: 20,
   });
 
-  const getStatutBadge = (statut: string) => {
-    switch (statut) {
-      case "actif":
-        return <Badge className="bg-green-100 text-green-800">Actif</Badge>;
-      case "suspendu":
-        return <Badge className="bg-red-100 text-red-800">Suspendu</Badge>;
-      case "diplome":
-        return <Badge className="bg-blue-100 text-blue-800">Diplômé</Badge>;
-      default:
-        return <Badge>Inconnu</Badge>;
+  useEffect(() => {
+    loadScholars();
+  }, [currentPage, searchTerm, selectedFiliere, selectedNiveau]);
+
+  const loadScholars = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const filters = {
+        search: searchTerm || undefined,
+        filiere: selectedFiliere || undefined,
+        niveau: selectedNiveau || undefined,
+        page: currentPage,
+        limit: 20,
+      };
+
+      const response = await userService.getScholars(filters);
+
+      if (response.success) {
+        setScholars(response.data || []);
+        setPagination(
+          response.pagination || {
+            total: 0,
+            pages: 0,
+            page: 1,
+            limit: 20,
+          }
+        );
+      } else {
+        setError(response.error || "Erreur lors du chargement des données");
+      }
+    } catch (err) {
+      setError("Erreur lors du chargement des étudiants");
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 85) return "text-green-600";
-    if (score >= 70) return "text-orange-600";
-    return "text-red-600";
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
   };
 
-  const ScholarDetailsDialog = ({ scholar }: { scholar: Scholar }) => (
-    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-3">
-          <Avatar className="w-10 h-10">
-            <AvatarImage src="" />
-            <AvatarFallback className="bg-blue-600 text-white">
-              {scholar.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
-            </AvatarFallback>
-          </Avatar>
-          Profil de {scholar.name}
-        </DialogTitle>
-        <DialogDescription>
-          Détails complets et suivi des performances LED
-        </DialogDescription>
-      </DialogHeader>
+  const handleFilterChange = (type: string, value: string) => {
+    if (type === "filiere") {
+      setSelectedFiliere(value);
+    } else if (type === "niveau") {
+      setSelectedNiveau(value);
+    }
+    setCurrentPage(1);
+  };
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
-          <TabsTrigger value="progress">Progression</TabsTrigger>
-          <TabsTrigger value="activities">Activités</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-        </TabsList>
+  const getStatusBadge = (scholar: Scholar) => {
+    if (scholar.stats.completionRate >= 80) {
+      return (
+        <Badge className="bg-green-100 text-green-800">
+          <CheckCircle className="w-3 h-3 mr-1" />
+          Actif
+        </Badge>
+      );
+    } else if (scholar.stats.completionRate >= 50) {
+      return (
+        <Badge className="bg-yellow-100 text-yellow-800">
+          <Clock className="w-3 h-3 mr-1" />À surveiller
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge className="bg-red-100 text-red-800">
+          <AlertTriangle className="w-3 h-3 mr-1" />
+          Alerte
+        </Badge>
+      );
+    }
+  };
 
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  Informations Personnelles
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm">{scholar.email}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="w-4 h-4 text-green-500" />
-                  <span className="text-sm">
-                    {scholar.filiere} - {scholar.niveau}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-purple-500" />
-                  <span className="text-sm">
-                    Dernier accès: {scholar.dernierAcces}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-orange-500" />
-                  <span className="text-sm">
-                    Prochaine échéance: {scholar.prochaineDue}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+  const getAlertes = (scholar: Scholar) => {
+    if (scholar.stats.completionRate < 50) return "Taux faible";
+    if (scholar.stats.globalScore < 60) return "Score faible";
+    return "OK";
+  };
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Performance LED</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">
-                      Score Global LED
-                    </span>
-                    <span
-                      className={`text-sm font-bold ${getScoreColor(
-                        scholar.scoreGlobal
-                      )}`}
-                    >
-                      {scholar.scoreGlobal}/100
-                    </span>
-                  </div>
-                  <Progress
-                    value={scholar.scoreGlobal}
-                    className="w-full h-2"
-                  />
-                </div>
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p>Chargement des étudiants...</p>
+        </div>
+      </div>
+    );
+  }
 
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Rapports Soumis</span>
-                    <span className="text-sm font-bold text-blue-600">
-                      {scholar.rapportsSoumis}/{scholar.rapportsTotal}
-                    </span>
-                  </div>
-                  <Progress
-                    value={
-                      (scholar.rapportsSoumis / scholar.rapportsTotal) * 100
-                    }
-                    className="w-full h-2"
-                  />
-                </div>
+  if (error) {
+    return (
+      <div className="p-6">
+        <Alert className="border-red-200 bg-red-50">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">{error}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
-                <div className="flex items-center justify-between pt-2">
-                  <span className="text-sm text-muted-foreground">
-                    Activités en cours
-                  </span>
-                  <Badge variant="outline">{scholar.activitesEnCours}</Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="progress" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Évolution des Compétences</CardTitle>
-              <CardDescription>
-                Progression mensuelle dans les 3 domaines LED
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Entrepreneuriat</span>
-                    <span className="text-sm font-bold text-blue-600">
-                      88/100
-                    </span>
-                  </div>
-                  <Progress value={88} className="w-full h-2" />
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Leadership</span>
-                    <span className="text-sm font-bold text-green-600">
-                      92/100
-                    </span>
-                  </div>
-                  <Progress value={92} className="w-full h-2" />
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Digital</span>
-                    <span className="text-sm font-bold text-purple-600">
-                      85/100
-                    </span>
-                  </div>
-                  <Progress value={85} className="w-full h-2" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="activities" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Activités Récentes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-4 w-4 text-blue-500" />
-                    <div>
-                      <p className="font-medium">Projet Innovation Tech</p>
-                      <p className="text-sm text-muted-foreground">
-                        Entrepreneuriat • Échéance: 25/08/2025
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant="default">En cours</Badge>
-                </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Award className="h-4 w-4 text-green-500" />
-                    <div>
-                      <p className="font-medium">Formation Leadership</p>
-                      <p className="text-sm text-muted-foreground">
-                        Leadership • Soumis le 15/08/2025
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="text-green-600">
-                    Complété
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="notifications" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notifications et Alertes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {scholar.alertes > 0 ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 border border-red-200 rounded-lg bg-red-50">
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
-                    <div>
-                      <p className="font-medium text-red-800">
-                        3 rapports en retard
-                      </p>
-                      <p className="text-sm text-red-600">
-                        Action requise immédiatement
-                      </p>
-                    </div>
-                  </div>
-                  <Button className="w-full" variant="outline">
-                    <Mail className="w-4 h-4 mr-2" />
-                    Envoyer un rappel
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 p-3 border border-green-200 rounded-lg bg-green-50">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <div>
-                    <p className="font-medium text-green-800">Aucune alerte</p>
-                    <p className="text-sm text-green-600">
-                      Étudiant à jour dans ses obligations
-                    </p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </DialogContent>
-  );
-
+  // Vue pour l'équipe LED
   if (userRole === "led_team") {
     return (
       <div className="p-6 space-y-6">
@@ -892,21 +677,25 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
             Gestion des Boursiers LED
           </h1>
           <p className="text-muted-foreground">
-            Suivi et management des étudiants bénéficiaires
+            Suivi et administration des étudiants du programme LED
           </p>
         </div>
 
-        {/* Statistiques rapides */}
+        {/* KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">
-                Total Boursiers
+                Total Étudiants
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">168</div>
-              <p className="text-xs text-green-600">+15 nouveaux</p>
+              <div className="text-2xl font-bold text-blue-600">
+                {pagination.total}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                étudiants inscrits
+              </p>
             </CardContent>
           </Card>
 
@@ -917,30 +706,53 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">156</div>
-              <p className="text-xs text-muted-foreground">93% du total</p>
+              <div className="text-2xl font-bold text-green-600">
+                {scholars.filter((s) => s.stats.completionRate >= 80).length}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                performance élevée
+              </p>
             </CardContent>
           </Card>
 
           <Card className="border-l-4 border-l-orange-500">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">
-                Alertes Actives
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">12</div>
-              <p className="text-xs text-red-600">Nécessitent un suivi</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-purple-500">
-            <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Score Moyen</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600">84/100</div>
-              <p className="text-xs text-green-600">+2 vs mois précédent</p>
+              <div className="text-2xl font-bold text-orange-600">
+                {scholars.length > 0
+                  ? Math.round(
+                      scholars.reduce(
+                        (sum, s) => sum + s.stats.globalScore,
+                        0
+                      ) / scholars.length
+                    )
+                  : 0}
+                /100
+              </div>
+              <p className="text-xs text-muted-foreground">
+                toutes compétences
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-red-500">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Alertes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {
+                  scholars.filter(
+                    (s) =>
+                      s.stats.completionRate < 50 || s.stats.globalScore < 60
+                  ).length
+                }
+              </div>
+              <p className="text-xs text-muted-foreground">
+                nécessitent un suivi
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -954,63 +766,61 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="search">Rechercher un étudiant</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="search"
-                    placeholder="Nom ou email..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+            <div className="flex gap-4 flex-wrap">
+              <div className="flex-1 min-w-[200px]">
+                <Input
+                  placeholder="Rechercher par nom ou email..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="max-w-sm"
+                />
               </div>
+              {/* ✅ Correction du Select Filière */}
+              <Select
+                value={selectedFiliere}
+                onValueChange={(value) =>
+                  handleFilterChange("filiere", value === "all" ? "" : value)
+                }
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Toutes les filières" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les filières</SelectItem>
+                  <SelectItem value="Génie Civil">Génie Civil</SelectItem>
+                  <SelectItem value="Informatique">Informatique</SelectItem>
+                  <SelectItem value="Eau et Assainissement">
+                    Eau et Assainissement
+                  </SelectItem>
+                  <SelectItem value="Électronique">Électronique</SelectItem>
+                  <SelectItem value="Génie Électrique">
+                    Génie Électrique
+                  </SelectItem>
+                  <SelectItem value="Mines et Géologie">
+                    Mines et Géologie
+                  </SelectItem>
+                </SelectContent>
+              </Select>
 
-              <div className="space-y-2">
-                <Label>Filière</Label>
-                <Select
-                  value={selectedFiliere}
-                  onValueChange={setSelectedFiliere}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toutes les filières</SelectItem>
-                    <SelectItem value="Informatique">Informatique</SelectItem>
-                    <SelectItem value="Génie Civil">Génie Civil</SelectItem>
-                    <SelectItem value="Électronique">Électronique</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Statut</Label>
-                <Select
-                  value={selectedStatut}
-                  onValueChange={setSelectedStatut}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tous les statuts</SelectItem>
-                    <SelectItem value="actif">Actif</SelectItem>
-                    <SelectItem value="suspendu">Suspendu</SelectItem>
-                    <SelectItem value="diplome">Diplômé</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-end">
-                <Button className="w-full">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Nouveau boursier
-                </Button>
-              </div>
+              {/* ✅ Correction du Select Niveau */}
+              <Select
+                value={selectedNiveau}
+                onValueChange={(value) =>
+                  handleFilterChange("niveau", value === "all" ? "" : value)
+                }
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Tous les niveaux" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les niveaux</SelectItem>
+                  <SelectItem value="L1">Licence 1</SelectItem>
+                  <SelectItem value="L2">Licence 2</SelectItem>
+                  <SelectItem value="L3">Licence 3</SelectItem>
+                  <SelectItem value="M1">Master 1</SelectItem>
+                  <SelectItem value="M2">Master 2</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -1020,7 +830,7 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Liste des Boursiers ({filteredScholars.length})
+              Liste des Étudiants LED ({pagination.total})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1028,16 +838,17 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Étudiant</TableHead>
-                  <TableHead>Filière/Niveau</TableHead>
-                  <TableHead>Score LED</TableHead>
-                  <TableHead>Progression</TableHead>
+                  <TableHead>Filière</TableHead>
+                  <TableHead>Niveau</TableHead>
+                  <TableHead>Score Global</TableHead>
+                  <TableHead>Activités</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Alertes</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredScholars.map((scholar) => (
+                {scholars.map((scholar) => (
                   <TableRow key={scholar.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -1047,7 +858,8 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
                             {scholar.name
                               .split(" ")
                               .map((n) => n[0])
-                              .join("")}
+                              .join("")
+                              .toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div>
@@ -1058,78 +870,39 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
                         </div>
                       </div>
                     </TableCell>
+                    <TableCell>{scholar.filiere || "Non spécifiée"}</TableCell>
+                    <TableCell>{scholar.niveau || "Non spécifié"}</TableCell>
                     <TableCell>
-                      <div>
-                        <p className="font-medium">{scholar.filiere}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {scholar.niveau}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`font-bold ${getScoreColor(
-                            scholar.scoreGlobal
-                          )}`}
-                        >
-                          {scholar.scoreGlobal}
-                        </span>
-                        <span className="text-muted-foreground">/100</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span>Rapports</span>
-                          <span>
-                            {scholar.rapportsSoumis}/{scholar.rapportsTotal}
-                          </span>
+                      <div className="flex flex-col gap-1">
+                        <div className="font-semibold">
+                          {scholar.stats.globalScore}/100
                         </div>
                         <Progress
-                          value={
-                            (scholar.rapportsSoumis / scholar.rapportsTotal) *
-                            100
-                          }
+                          value={scholar.stats.globalScore}
                           className="w-16 h-1"
                         />
                       </div>
                     </TableCell>
-                    <TableCell>{getStatutBadge(scholar.statut)}</TableCell>
                     <TableCell>
-                      {scholar.alertes > 0 ? (
-                        <Badge variant="destructive" className="text-xs">
-                          {scholar.alertes} alerte
-                          {scholar.alertes > 1 ? "s" : ""}
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="text-green-600 text-xs"
-                        >
-                          OK
-                        </Badge>
-                      )}
+                      <div className="text-sm">
+                        <div className="font-medium">
+                          Activités {scholar.stats.completedActivities}/
+                          {scholar.stats.totalActivities}
+                        </div>
+                        <div className="text-muted-foreground">
+                          {scholar.stats.completionRate}% complétées
+                        </div>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-1 justify-end">
-                        <Dialog
-                          open={showDetailsDialog}
-                          onOpenChange={setShowDetailsDialog}
-                        >
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedScholar(scholar)}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </DialogTrigger>
-                          {selectedScholar && (
-                            <ScholarDetailsDialog scholar={selectedScholar} />
-                          )}
-                        </Dialog>
+                    <TableCell>{getStatusBadge(scholar)}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">{getAlertes(scholar)}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          <Eye className="w-4 h-4" />
+                        </Button>
                         <Button variant="outline" size="sm">
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -1139,13 +912,41 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
                 ))}
               </TableBody>
             </Table>
+
+            {/* Pagination */}
+            {pagination.pages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Page {pagination.page} sur {pagination.pages} (
+                  {pagination.total} étudiants)
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                  >
+                    Précédent
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage >= pagination.pages}
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                  >
+                    Suivant
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Vue pour les superviseurs
+  // Vue pour les superviseurs (simplifiée)
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -1164,18 +965,28 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">12</div>
-            <p className="text-xs text-muted-foreground">Actifs cette année</p>
+            <div className="text-2xl font-bold text-blue-600">
+              {scholars.length}
+            </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-green-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Score Moyen</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Performance Moyenne
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">87/100</div>
-            <p className="text-xs text-green-600">Excellent niveau</p>
+            <div className="text-2xl font-bold text-green-600">
+              {scholars.length > 0
+                ? Math.round(
+                    scholars.reduce((sum, s) => sum + s.stats.globalScore, 0) /
+                      scholars.length
+                  )
+                : 0}
+              /100
+            </div>
           </CardContent>
         </Card>
 
@@ -1184,72 +995,58 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
             <CardTitle className="text-sm font-medium">À Évaluer</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">5</div>
-            <p className="text-xs text-muted-foreground">Rapports en attente</p>
+            <div className="text-2xl font-bold text-orange-600">
+              {scholars.reduce(
+                (sum, s) =>
+                  sum + (s.stats.totalActivities - s.stats.completedActivities),
+                0
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Liste simplifiée pour superviseurs */}
       <Card>
         <CardHeader>
-          <CardTitle>Liste de mes Étudiants</CardTitle>
+          <CardTitle>Liste des Étudiants</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Étudiant</TableHead>
-                <TableHead>Score LED</TableHead>
-                <TableHead>Dernière Activité</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredScholars.slice(0, 3).map((scholar) => (
-                <TableRow key={scholar.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-8 h-8">
-                        <AvatarImage src="" />
-                        <AvatarFallback className="text-xs">
-                          {scholar.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{scholar.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {scholar.filiere}
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`font-bold ${getScoreColor(
-                        scholar.scoreGlobal
-                      )}`}
-                    >
-                      {scholar.scoreGlobal}/100
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{scholar.dernierAcces}</span>
-                  </TableCell>
-                  <TableCell>{getStatutBadge(scholar.statut)}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="outline" size="sm">
-                      <Eye className="w-4 h-4 mr-2" />
-                      Voir détails
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="space-y-4">
+            {scholars.map((scholar) => (
+              <div
+                key={scholar.id}
+                className="flex items-center justify-between p-4 border rounded-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar>
+                    <AvatarFallback>
+                      {scholar.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">{scholar.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {scholar.filiere} • {scholar.niveau}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-semibold">
+                    {scholar.stats.globalScore}/100
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {scholar.stats.completedActivities}/
+                    {scholar.stats.totalActivities} activités
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -29,8 +29,8 @@ model Activity {
   title           String
   type            ActivityType
   description     String
-  startDate       DateTime
-  endDate         DateTime
+  startDate       DateTime?
+  endDate         DateTime?
   status          ActivityStatus @default(planned)      // ✅ Minuscules
   progress        Int      @default(0)
   priority        Priority @default(medium)             // ✅ Minuscules

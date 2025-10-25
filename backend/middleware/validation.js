@@ -7,18 +7,27 @@ const validateActivity = () => [
     .isLength({ min: 3, max: 200 })
     .withMessage("Le titre doit contenir entre 3 et 200 caractères"),
   body("type")
-    .isIn(["ENTREPRENEURIAT", "LEADERSHIP", "DIGITAL"])
+    .customSanitizer((value) => value?.toLowerCase())
+    .isIn(["entrepreneuriat", "leadership", "digital"])
     .withMessage("Type d'activité invalide"),
   body("description")
     .trim()
     .isLength({ min: 100, max: 2000 })
     .withMessage("La description doit contenir entre 100 et 2000 caractères"),
-  body("startDate").isISO8601().withMessage("Date de début invalide"),
+  body("startDate")
+    .optional()
+    .isISO8601()
+    .withMessage("Date de début invalide"),
   body("endDate")
+    .optional()
     .isISO8601()
     .withMessage("Date de fin invalide")
     .custom((endDate, { req }) => {
-      if (new Date(endDate) <= new Date(req.body.startDate)) {
+      if (
+        endDate &&
+        req.body.startDate &&
+        new Date(endDate) <= new Date(req.body.startDate)
+      ) {
         throw new Error(
           "La date de fin doit être postérieure à la date de début"
         );
@@ -27,18 +36,20 @@ const validateActivity = () => [
     }),
   body("status")
     .optional()
+    .customSanitizer((value) => value?.toLowerCase())
     .isIn([
-      "PLANNED",
-      "IN_PROGRESS",
-      "COMPLETED",
-      "SUBMITTED",
-      "EVALUATED",
-      "CANCELLED",
+      "planned",
+      "in_progress",
+      "completed",
+      "submitted",
+      "evaluated",
+      "cancelled",
     ])
     .withMessage("Statut invalide"),
   body("priority")
     .optional()
-    .isIn(["LOW", "MEDIUM", "HIGH"])
+    .customSanitizer((value) => value?.toLowerCase())
+    .isIn(["low", "medium", "high"])
     .withMessage("Priorité invalide"),
   body("estimatedHours")
     .optional()

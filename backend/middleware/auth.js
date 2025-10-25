@@ -138,7 +138,8 @@ const authenticate = async (req, res, next) => {
 
     // Ajouter les informations de l'utilisateur à la requête
     req.user = {
-      userId: user.id,
+      id: user.id,
+      userId: user.id, // Garder pour rétrocompatibilité
       email: user.email,
       role: user.role.toLowerCase(), // Normaliser en minuscules
       name: user.name,

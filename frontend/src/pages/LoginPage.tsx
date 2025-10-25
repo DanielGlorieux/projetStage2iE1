@@ -438,9 +438,13 @@ import {
   Lightbulb,
 } from "lucide-react";
 import { authService } from "../services/authService";
+import { Support } from "./Support";
+import { UserGuide } from "./UserGuide";
+import { ContactLED } from "./ContactLED";
 
 interface LoginPageProps {
   onLogin: (user: User) => void;
+  onNavigate?: (view: string) => void;
 }
 
 interface LoginForm {
@@ -450,7 +454,7 @@ interface LoginForm {
   name?: string;
 }
 
-export function LoginPage({ onLogin }: LoginPageProps) {
+export function LoginPage({ onLogin, onNavigate }: LoginPageProps) {
   const [formData, setFormData] = useState<LoginForm>({
     email: "",
     password: "",
@@ -460,7 +464,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [loginMode, setLoginMode] = useState<"login" | "register">("login");
-  const [backendStatus, setBackendStatus] = useState<'checking' | 'connected' | 'error'>('checking');
+  const [backendStatus, setBackendStatus] = useState<
+    "checking" | "connected" | "error"
+  >("checking");
 
   useEffect(() => {
     console.log("🔑 LoginPage mounted");
@@ -716,15 +722,33 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           Digital
         </p>
         <div className="flex items-center justify-center gap-4 mt-2 text-blue-600">
-          <a href="#" className="hover:underline">
+          <button
+            onClick={() => {
+              console.log("🔗 Clic sur Support");
+              onNavigate?.("support");
+            }}
+            className="hover:underline cursor-pointer"
+          >
             Support technique
-          </a>
-          <a href="#" className="hover:underline">
+          </button>
+          <button
+            onClick={() => {
+              console.log("🔗 Clic sur Guide");
+              onNavigate?.("guide");
+            }}
+            className="hover:underline cursor-pointer"
+          >
             Guide d'utilisation
-          </a>
-          <a href="#" className="hover:underline">
+          </button>
+          <button
+            onClick={() => {
+              console.log("🔗 Clic sur Contact");
+              onNavigate?.("contact");
+            }}
+            className="hover:underline cursor-pointer"
+          >
             Contact LED
-          </a>
+          </button>
         </div>
       </footer>
     </div>

@@ -107,12 +107,12 @@ router.post("/", validateActivity(), async (req, res, next) => {
       ...req.body,
       userId: req.user.id,
       progress:
-        req.body.status === "COMPLETED"
+        req.body.status === "completed"
           ? 100
-          : req.body.status === "IN_PROGRESS"
+          : req.body.status === "in_progress"
           ? 50
           : 0,
-      submittedAt: req.body.status === "SUBMITTED" ? new Date() : null,
+      submittedAt: req.body.status === "submitted" ? new Date() : null,
     });
 
     // Convertir les dates
@@ -180,7 +180,7 @@ router.put(
         });
       }
 
-      if (existingActivity.status === "EVALUATED") {
+      if (existingActivity.status === "evaluated") {
         return res.status(400).json({
           success: false,
           error: "Impossible de modifier une activité déjà évaluée",
@@ -192,28 +192,28 @@ router.put(
       // Calculer le progrès
       if (updateData.status) {
         switch (updateData.status) {
-          case "PLANNED":
+          case "planned":
             updateData.progress = 0;
             break;
-          case "IN_PROGRESS":
+          case "in_progress":
             updateData.progress = 50;
             break;
-          case "COMPLETED":
+          case "completed":
             updateData.progress = 100;
             break;
-          case "SUBMITTED":
+          case "submitted":
             updateData.progress = 100;
             break;
-          case "EVALUATED":
+          case "evaluated":
             updateData.progress = 100;
             break;
         }
       }
 
-      // Ajouter submittedAt si changement vers SUBMITTED
+      // Ajouter submittedAt si changement vers submitted
       if (
-        updateData.status === "SUBMITTED" &&
-        existingActivity.status !== "SUBMITTED"
+        updateData.status === "submitted" &&
+        existingActivity.status !== "submitted"
       ) {
         updateData.submittedAt = new Date();
       }
@@ -463,11 +463,12 @@ const prisma = new PrismaClient();
  */
 router.get("/", authenticate, async (req, res, next) => {
   try {
+    console.log("GET /api/activities - User:", req.user);
     const { userId, type, status, limit = 50, offset = 0 } = req.query;
 
     const where = {};
 
-    if (req.user.role === "STUDENT") {
+    if (req.user.role === "student") {
       where.userId = req.user.id;
     } else if (userId) {
       where.userId = userId;
@@ -475,6 +476,8 @@ router.get("/", authenticate, async (req, res, next) => {
 
     if (type) where.type = type;
     if (status) where.status = status;
+
+    console.log("Query where clause:", where);
 
     const activities = await prisma.activity.findMany({
       where,
@@ -505,20 +508,25 @@ router.get("/", authenticate, async (req, res, next) => {
       skip: parseInt(offset),
     });
 
+    console.log("Found activities:", activities.length);
+
     const formattedActivities = activities.map((activity) => {
       const formatted = formatActivity(activity);
+      const firstEvaluation = formatted.evaluations?.[0];
       return {
         ...formatted,
-        score: formatted.evaluations[0]?.score,
-        maxScore: formatted.evaluations[0]?.maxScore,
-        feedback: formatted.evaluations[0]?.feedback,
-        evaluatorName: formatted.evaluations[0]?.evaluator.name,
-        evaluatedAt: formatted.evaluations[0]?.createdAt,
+        score: firstEvaluation?.score,
+        maxScore: firstEvaluation?.maxScore,
+        feedback: firstEvaluation?.feedback,
+        evaluatorName: firstEvaluation?.evaluator?.name,
+        evaluatedAt: firstEvaluation?.createdAt,
       };
     });
 
+    console.log("Sending response with", formattedActivities.length, "activities");
     res.json({ success: true, data: formattedActivities });
   } catch (error) {
+    console.error("Error in GET /api/activities:", error);
     next(error);
   }
 });
@@ -537,25 +545,54 @@ router.post("/", authenticate, validateActivity(), async (req, res, next) => {
       });
     }
 
-    const activityData = prepareActivityForDB({
-      ...req.body,
+    // Préparer les données avec valeurs par défaut
+    const baseData = {
+      title: req.body.title,
+      type: req.body.type,
+      description: req.body.description,
+      startDate: req.body.startDate ? new Date(req.body.startDate) : new Date(),
+      endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
+      status: req.body.status || "planned",
+      priority: req.body.priority || "medium",
+      estimatedHours: req.body.estimatedHours || undefined,
+      actualHours: req.body.actualHours || undefined,
       userId: req.user.id,
       progress:
-        req.body.status === "COMPLETED"
+        req.body.status === "completed"
           ? 100
-          : req.body.status === "IN_PROGRESS"
+          : req.body.status === "in_progress"
           ? 50
           : 0,
-      submittedAt: req.body.status === "SUBMITTED" ? new Date() : null,
+      submittedAt: req.body.status === "submitted" ? new Date() : undefined,
+    };
+
+    const { userId, ...baseDataWithoutUser } = baseData;
+
+    const activityData = prepareActivityForDB({
+      ...baseDataWithoutUser,
+      collaborators: req.body.collaborators || [],
+      objectives: req.body.objectives || [],
+      outcomes: req.body.outcomes || [],
+      challenges: req.body.challenges || [],
+      learnings: req.body.learnings || [],
+      tags: req.body.tags || [],
+      documents: req.body.documents || [],
     });
 
-    if (activityData.startDate)
-      activityData.startDate = new Date(activityData.startDate);
-    if (activityData.endDate)
-      activityData.endDate = new Date(activityData.endDate);
+    console.log("Données à insérer:", JSON.stringify(activityData, null, 2));
+
+    // Remove null and undefined values from activityData
+    const cleanedData = Object.fromEntries(
+      Object.entries(activityData).filter(([_, value]) => value !== null && value !== undefined)
+    );
 
     const activity = await prisma.activity.create({
-      data: activityData,
+      data: {
+        ...cleanedData,
+        user: {
+          connect: { id: userId }
+        }
+      },
       include: {
         user: { select: { id: true, name: true, email: true } },
       },
@@ -567,6 +604,7 @@ router.post("/", authenticate, validateActivity(), async (req, res, next) => {
       message: "Activité créée avec succès",
     });
   } catch (error) {
+    console.error("Erreur création activité:", error);
     next(error);
   }
 });
@@ -614,20 +652,27 @@ router.put(
 
       if (updateData.status) {
         switch (updateData.status) {
-          case "PLANNED":
+          case "planned":
             updateData.progress = 0;
             break;
-          case "IN_PROGRESS":
+          case "in_progress":
             updateData.progress = 50;
             break;
-          default:
+          case "completed":
             updateData.progress = 100;
+            break;
+          case "submitted":
+          case "evaluated":
+            updateData.progress = 100;
+            break;
+          default:
+            updateData.progress = existingActivity.progress || 0;
         }
       }
 
       if (
-        updateData.status === "SUBMITTED" &&
-        existingActivity.status !== "SUBMITTED"
+        updateData.status === "submitted" &&
+        existingActivity.status !== "submitted"
       ) {
         updateData.submittedAt = new Date();
       }
@@ -648,6 +693,7 @@ router.put(
         message: "Activité mise à jour avec succès",
       });
     } catch (error) {
+      console.error("Erreur mise à jour activité:", error);
       next(error);
     }
   }
@@ -665,13 +711,11 @@ router.post(
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: "ID invalide",
-            details: errors.array(),
-          });
+        return res.status(400).json({
+          success: false,
+          error: "ID invalide",
+          details: errors.array(),
+        });
       }
 
       const { id } = req.params;
@@ -732,17 +776,15 @@ router.post(
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: "Données invalides",
-            details: errors.array(),
-          });
+        return res.status(400).json({
+          success: false,
+          error: "Données invalides",
+          details: errors.array(),
+        });
       }
 
       const { id } = req.params;
-      const { score, feedback, status = "EVALUATED" } = req.body;
+      const { score, feedback, status = "evaluated" } = req.body;
 
       const activity = await prisma.activity.findUnique({
         where: { id },
@@ -755,13 +797,11 @@ router.post(
           .json({ success: false, error: "Activité non trouvée" });
       }
 
-      if (activity.status !== "SUBMITTED") {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            error: "Cette activité n'a pas encore été soumise",
-          });
+      if (activity.status !== "submitted") {
+        return res.status(400).json({
+          success: false,
+          error: "Cette activité n'a pas encore été soumise",
+        });
       }
 
       const evaluation = await prisma.evaluation.upsert({
@@ -799,5 +839,340 @@ router.post(
     }
   }
 );
+
+/**
+ * POST /api/activities/export - Exporter les activités
+ */
+router.post("/export", authenticate, async (req, res, next) => {
+  try {
+    const { format } = req.body;
+    const userId = req.user.role === "STUDENT" ? req.user.id : req.body.userId;
+
+    if (!format || !["csv", "excel", "pdf"].includes(format)) {
+      return res.status(400).json({
+        success: false,
+        error: "Format d'export invalide. Utilisez csv, excel ou pdf",
+      });
+    }
+
+    // Récupérer les activités de l'utilisateur
+    const activities = await prisma.activity.findMany({
+      where: userId ? { userId } : {},
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        evaluations: {
+          include: {
+            evaluator: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const formattedActivities = activities.map((activity) =>
+      formatActivity(activity)
+    );
+
+    if (format === "csv") {
+      // Export CSV
+      const XLSX = require("xlsx");
+      const csvData = formattedActivities.map((activity) => ({
+        Titre: activity.title,
+        Type: activity.type,
+        Description: activity.description,
+        "Date de début": activity.startDate
+          ? new Date(activity.startDate).toLocaleDateString("fr-FR")
+          : "Non définie",
+        "Date de fin": activity.endDate
+          ? new Date(activity.endDate).toLocaleDateString("fr-FR")
+          : "Non définie",
+        Statut: activity.status,
+        Priorité: activity.priority,
+        Progression: `${activity.progress}%`,
+        "Heures estimées": activity.estimatedHours || 0,
+        "Heures réelles": activity.actualHours || 0,
+        Collaborateurs: activity.collaborators
+          ? activity.collaborators.join(", ")
+          : "",
+        Objectifs: activity.objectives ? activity.objectives.join(" | ") : "",
+        Score:
+          activity.evaluations && activity.evaluations.length > 0
+            ? activity.evaluations[0].score
+            : "",
+        Feedback:
+          activity.evaluations && activity.evaluations.length > 0
+            ? activity.evaluations[0].feedback
+            : "",
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(csvData);
+      const csv = XLSX.utils.sheet_to_csv(ws);
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="activites-led-${Date.now()}.csv"`
+      );
+      res.send("\uFEFF" + csv); // BOM pour UTF-8
+    } else if (format === "excel") {
+      // Export Excel
+      const XLSX = require("xlsx");
+      const excelData = formattedActivities.map((activity) => ({
+        Titre: activity.title,
+        Type: activity.type,
+        Description: activity.description,
+        "Date de début": activity.startDate
+          ? new Date(activity.startDate).toLocaleDateString("fr-FR")
+          : "Non définie",
+        "Date de fin": activity.endDate
+          ? new Date(activity.endDate).toLocaleDateString("fr-FR")
+          : "Non définie",
+        Statut: activity.status,
+        Priorité: activity.priority,
+        Progression: activity.progress,
+        "Heures estimées": activity.estimatedHours || 0,
+        "Heures réelles": activity.actualHours || 0,
+        Collaborateurs: activity.collaborators
+          ? activity.collaborators.join(", ")
+          : "",
+        Objectifs: activity.objectives ? activity.objectives.join(" | ") : "",
+        Résultats: activity.outcomes ? activity.outcomes.join(" | ") : "",
+        Défis: activity.challenges ? activity.challenges.join(" | ") : "",
+        Apprentissages: activity.learnings
+          ? activity.learnings.join(" | ")
+          : "",
+        Score:
+          activity.evaluations && activity.evaluations.length > 0
+            ? activity.evaluations[0].score
+            : "",
+        Feedback:
+          activity.evaluations && activity.evaluations.length > 0
+            ? activity.evaluations[0].feedback
+            : "",
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Ajuster la largeur des colonnes
+      const colWidths = [
+        { wch: 40 }, // Titre
+        { wch: 15 }, // Type
+        { wch: 50 }, // Description
+        { wch: 12 }, // Date début
+        { wch: 12 }, // Date fin
+        { wch: 12 }, // Statut
+        { wch: 10 }, // Priorité
+        { wch: 12 }, // Progression
+        { wch: 12 }, // Heures estimées
+        { wch: 12 }, // Heures réelles
+        { wch: 30 }, // Collaborateurs
+        { wch: 50 }, // Objectifs
+        { wch: 50 }, // Résultats
+        { wch: 50 }, // Défis
+        { wch: 50 }, // Apprentissages
+        { wch: 8 }, // Score
+        { wch: 50 }, // Feedback
+      ];
+      ws["!cols"] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, "Activités LED");
+
+      const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="activites-led-${Date.now()}.xlsx"`
+      );
+      res.send(buffer);
+    } else if (format === "pdf") {
+      // Export PDF
+      const PDFDocument = require("pdfkit");
+      const doc = new PDFDocument({ 
+        size: "A4", 
+        margin: 50,
+        bufferPages: true
+      });
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="activites-led-${Date.now()}.pdf"`
+      );
+
+      // Important: gérer les erreurs du stream
+      doc.on('error', (err) => {
+        console.error('PDF generation error:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ success: false, error: 'Erreur de génération PDF' });
+        }
+      });
+
+      doc.pipe(res);
+
+      try {
+        // Titre du document
+        doc
+          .fontSize(20)
+          .font("Helvetica-Bold")
+          .text("Rapport des Activites LED", { align: "center" });
+        doc.moveDown();
+        doc
+          .fontSize(10)
+          .font("Helvetica")
+          .text(`Date d'export: ${new Date().toLocaleDateString("fr-FR")}`, {
+            align: "center",
+          });
+        doc
+          .text(`Nombre d'activites: ${formattedActivities.length}`, {
+            align: "center",
+          });
+        doc.moveDown(2);
+
+        // Si aucune activité, ajouter un message
+        if (formattedActivities.length === 0) {
+          doc
+            .fontSize(12)
+            .text("Aucune activite a afficher.", { align: "center" });
+        }
+
+        // Liste des activités
+        formattedActivities.forEach((activity, index) => {
+          try {
+            // Vérifier s'il faut ajouter une nouvelle page
+            if (doc.y > 650) {
+              doc.addPage();
+            }
+
+            // Titre de l'activité (sans couleur problématique)
+            doc
+              .fontSize(14)
+              .font("Helvetica-Bold")
+              .fillColor("blue")
+              .text(`${index + 1}. ${activity.title || "Sans titre"}`)
+              .fillColor("black");
+            doc.moveDown(0.5);
+
+            // Informations de base
+            doc.fontSize(10).font("Helvetica");
+            doc.text(`Type: ${activity.type || "Non specifie"}`);
+            doc.text(`Statut: ${activity.status || "Non specifie"}`);
+            doc.text(`Priorite: ${activity.priority || "Non specifiee"}`);
+
+            if (activity.startDate || activity.endDate) {
+              const startStr = activity.startDate
+                ? new Date(activity.startDate).toLocaleDateString("fr-FR")
+                : "Non definie";
+              const endStr = activity.endDate
+                ? new Date(activity.endDate).toLocaleDateString("fr-FR")
+                : "Non definie";
+              doc.text(`Periode: ${startStr} - ${endStr}`);
+            }
+
+            doc.text(`Progression: ${activity.progress || 0}%`);
+            doc.moveDown(0.5);
+
+            // Description
+            doc.fontSize(9).font("Helvetica-Bold").text("Description:");
+            doc.font("Helvetica");
+            const description = (activity.description || "Aucune description")
+              .substring(0, 500); // Limiter la longueur
+            doc.text(description, { width: 500, align: "justify" });
+            doc.moveDown(0.5);
+
+            // Objectifs
+            if (activity.objectives && activity.objectives.length > 0) {
+              doc.font("Helvetica-Bold").text("Objectifs:");
+              doc.font("Helvetica");
+              activity.objectives.slice(0, 5).forEach((obj) => {
+                if (obj && obj.trim()) {
+                  const objText = obj.substring(0, 200); // Limiter la longueur
+                  doc.text(`  - ${objText}`, { width: 480 });
+                }
+              });
+              doc.moveDown(0.5);
+            }
+
+            // Résultats
+            if (activity.outcomes && activity.outcomes.length > 0) {
+              doc.font("Helvetica-Bold").text("Resultats:");
+              doc.font("Helvetica");
+              activity.outcomes.slice(0, 5).forEach((outcome) => {
+                if (outcome && outcome.trim()) {
+                  const outcomeText = outcome.substring(0, 200);
+                  doc.text(`  - ${outcomeText}`, { width: 480 });
+                }
+              });
+              doc.moveDown(0.5);
+            }
+
+            // Évaluation
+            if (activity.evaluations && activity.evaluations.length > 0) {
+              const evaluation = activity.evaluations[0];
+              doc.font("Helvetica-Bold");
+              doc.fillColor("green");
+              doc.text(`Score: ${evaluation.score || 0}/${evaluation.maxScore || 100}`);
+              doc.fillColor("black");
+              doc.font("Helvetica");
+              if (evaluation.feedback) {
+                const feedbackText = evaluation.feedback.substring(0, 300);
+                doc.text(`Feedback: ${feedbackText}`, { width: 480 });
+              }
+              doc.moveDown(0.5);
+            }
+
+            // Séparateur
+            doc
+              .strokeColor("gray")
+              .lineWidth(1)
+              .moveTo(50, doc.y)
+              .lineTo(550, doc.y)
+              .stroke()
+              .strokeColor("black");
+            doc.moveDown(1);
+
+          } catch (activityError) {
+            console.error(`Error processing activity ${index}:`, activityError);
+            doc.fontSize(10).fillColor("red");
+            doc.text(`Erreur lors du traitement de l'activite ${index + 1}`);
+            doc.fillColor("black");
+            doc.moveDown(1);
+          }
+        });
+
+        // Pied de page sur chaque page
+        const range = doc.bufferedPageRange();
+        for (let i = 0; i < range.count; i++) {
+          doc.switchToPage(i);
+          doc
+            .fontSize(8)
+            .font("Helvetica")
+            .fillColor("gray")
+            .text(
+              `Page ${i + 1} sur ${range.count}`,
+              50,
+              doc.page.height - 50,
+              { align: "center", width: 500 }
+            );
+        }
+
+        // Finaliser le document
+        doc.end();
+
+      } catch (pdfError) {
+        console.error('PDF content error:', pdfError);
+        doc.end();
+        throw pdfError;
+      }
+    }
+  } catch (error) {
+    console.error("Erreur export activités:", error);
+    next(error);
+  }
+});
 
 module.exports = router;

@@ -11,6 +11,7 @@ const authRoutes = require("./routes/auth");
 const activityRoutes = require("./routes/activities");
 const userRoutes = require("./routes/users");
 const searchRoutes = require("./routes/search");
+const { authenticate } = require("./middleware/auth");
 
 const app = express();
 
@@ -43,9 +44,11 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Routes API
 app.use("/api/auth", authRoutes);
-app.use("/api/activities", activityRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/search", searchRoutes);
+
+// Routes protégées
+app.use("/api/activities", authenticate, activityRoutes);
+app.use("/api/users", authenticate, userRoutes);
+app.use("/api/search", authenticate, searchRoutes);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

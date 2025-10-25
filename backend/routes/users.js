@@ -9,6 +9,147 @@ const prisma = new PrismaClient();
 
 router.use(authenticate);
 
+// GET /api/users/scholars - Récupérer tous les étudiants avec leurs statistiques
+router.get(
+  "/scholars",
+  authorize("led_team", "supervisor"),
+  async (req, res, next) => {
+    try {
+      const {
+        page = 1,
+        limit = 50,
+        search,
+        filiere,
+        niveau,
+        status,
+      } = req.query;
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+
+      const where = {
+        role: "student",
+      };
+
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      if (filiere) {
+        where.filiere = filiere;
+      }
+
+      if (niveau) {
+        where.niveau = niveau;
+      }
+
+      const users = await prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          filiere: true,
+          niveau: true,
+          createdAt: true,
+          activities: {
+            include: {
+              evaluations: true,
+            },
+          },
+        },
+        skip,
+        take: parseInt(limit),
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      const total = await prisma.user.count({ where });
+
+      // Calculer les statistiques pour chaque étudiant
+      const scholarsWithStats = users.map((user) => {
+        const activities = user.activities;
+        const completedActivities = activities.filter(
+          (a) => a.status === "completed" || a.status === "evaluated"
+        );
+
+        const scores = {
+          entrepreneuriat: 0,
+          leadership: 0,
+          digital: 0,
+        };
+
+        const counts = {
+          entrepreneuriat: 0,
+          leadership: 0,
+          digital: 0,
+        };
+
+        activities.forEach((activity) => {
+          if (activity.evaluations.length > 0) {
+            const type = activity.type;
+            if (scores.hasOwnProperty(type)) {
+              scores[type] += activity.evaluations[0].score;
+              counts[type]++;
+            }
+          }
+        });
+
+        Object.keys(scores).forEach((type) => {
+          if (counts[type] > 0) {
+            scores[type] = Math.round(scores[type] / counts[type]);
+          }
+        });
+
+        const globalScore = Math.round(
+          (scores.entrepreneuriat + scores.leadership + scores.digital) / 3
+        );
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          filiere: user.filiere,
+          niveau: user.niveau,
+          createdAt: user.createdAt,
+          stats: {
+            totalActivities: activities.length,
+            completedActivities: completedActivities.length,
+            completionRate:
+              activities.length > 0
+                ? Math.round(
+                    (completedActivities.length / activities.length) * 100
+                  )
+                : 0,
+            scores,
+            globalScore,
+          },
+        };
+      });
+
+      res.json({
+        success: true,
+        data: scholarsWithStats,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit)),
+        },
+      });
+    } catch (error) {
+      console.error("Erreur récupération scholars:", error);
+      res.status(500).json({
+        success: false,
+        error: "Erreur serveur",
+      });
+    }
+  }
+);
+
 // GET /api/users/me - Récupérer le profil de l'utilisateur connecté
 router.get("/me", async (req, res) => {
   try {
@@ -172,7 +313,7 @@ router.put(
 );
 
 // GET /api/users - Récupérer tous les utilisateurs (superviseurs uniquement)
-router.get("/", authorize("LED_TEAM", "SUPERVISOR"), async (req, res, next) => {
+router.get("/", authorize("led_team", "supervisor"), async (req, res, next) => {
   try {
     const { role, page = 1, limit = 50, search } = req.query;
 
@@ -240,8 +381,7 @@ router.get("/:id", param("id").isUUID(), async (req, res, next) => {
 
     const { id } = req.params;
 
-    // Les étudiants ne peuvent voir que leur propre profil
-    const targetId = req.user.role === "STUDENT" ? req.user.id : id;
+    const targetId = req.user.role === "student" ? req.user.id : id;
 
     const user = await prisma.user.findUnique({
       where: { id: targetId },
@@ -276,7 +416,7 @@ router.get("/:id", param("id").isUUID(), async (req, res, next) => {
     const stats = {
       activitesTotal: user.activities.length,
       activitesCompletes: user.activities.filter(
-        (a) => a.status === "COMPLETED" || a.status === "EVALUATED"
+        (a) => a.status === "completed" || a.status === "evaluated"
       ).length,
       scoresMoyens: {
         entrepreneuriat: 0,
@@ -285,16 +425,18 @@ router.get("/:id", param("id").isUUID(), async (req, res, next) => {
       },
     };
 
-    // Calculer les scores moyens par compétence
     const scoresByType = {
-      ENTREPRENEURIAT: [],
-      LEADERSHIP: [],
-      DIGITAL: [],
+      entrepreneuriat: [],
+      leadership: [],
+      digital: [],
     };
 
     user.activities.forEach((activity) => {
       if (activity.evaluations.length > 0) {
-        scoresByType[activity.type].push(activity.evaluations[0].score);
+        const activityType = activity.type.toLowerCase();
+        if (scoresByType[activityType]) {
+          scoresByType[activityType].push(activity.evaluations[0].score);
+        }
       }
     });
 
@@ -303,18 +445,30 @@ router.get("/:id", param("id").isUUID(), async (req, res, next) => {
       if (scores.length > 0) {
         const avg =
           scores.reduce((sum, score) => sum + score, 0) / scores.length;
-        stats.scoresMoyens[type.toLowerCase()] = Math.round(avg);
+        stats.scoresMoyens[type] = Math.round(avg);
       }
     });
+
+    const globalScore = Math.round(
+      (stats.scoresMoyens.entrepreneuriat +
+        stats.scoresMoyens.leadership +
+        stats.scoresMoyens.digital) /
+        3
+    );
 
     res.json({
       success: true,
       data: {
         ...user,
-        statistics: stats,
+        stats: {
+          ...stats,
+          globalScore,
+          scores: stats.scoresMoyens,
+        },
       },
     });
   } catch (error) {
+    console.error("Erreur GET /users/:id:", error);
     next(error);
   }
 });
@@ -331,7 +485,7 @@ router.put(
     body("email").optional().isEmail().withMessage("Email invalide"),
     body("role")
       .optional()
-      .isIn(["STUDENT", "LED_TEAM", "SUPERVISOR"])
+      .isIn(["student", "led_team", "supervisor"])
       .withMessage("Rôle invalide"),
     body("filiere").optional().isString().withMessage("Filière invalide"),
     body("niveau").optional().isString().withMessage("Niveau invalide"),
@@ -351,7 +505,7 @@ router.put(
       const { name, email, role, filiere, niveau } = req.body;
 
       // Vérifier les permissions
-      if (req.user.role === "STUDENT" && req.user.id !== id) {
+      if (req.user.role === "student" && req.user.id !== id) {
         return res.status(403).json({
           success: false,
           error: "Accès non autorisé",
@@ -359,7 +513,7 @@ router.put(
       }
 
       // Les étudiants ne peuvent pas changer leur rôle
-      if (req.user.role === "STUDENT" && role && role !== "STUDENT") {
+      if (req.user.role === "student" && role && role !== "student") {
         return res.status(403).json({
           success: false,
           error: "Vous ne pouvez pas modifier votre rôle",
@@ -369,7 +523,7 @@ router.put(
       const updateData = {};
       if (name !== undefined) updateData.name = name;
       if (email !== undefined) updateData.email = email;
-      if (role !== undefined && req.user.role !== "STUDENT")
+      if (role !== undefined && req.user.role !== "student")
         updateData.role = role;
       if (filiere !== undefined) updateData.filiere = filiere;
       if (niveau !== undefined) updateData.niveau = niveau;
@@ -409,7 +563,7 @@ router.put(
 // DELETE /api/users/:id - Supprimer un utilisateur (superviseurs uniquement)
 router.delete(
   "/:id",
-  authorize("LED_TEAM", "SUPERVISOR"),
+  authorize("led_team", "supervisor"),
   param("id").isUUID(),
   async (req, res, next) => {
     try {
@@ -496,7 +650,7 @@ router.post(
       const { currentPassword, newPassword } = req.body;
 
       // Vérifier les permissions
-      if (req.user.role === "STUDENT" && req.user.id !== id) {
+      if (req.user.role === "student" && req.user.id !== id) {
         return res.status(403).json({
           success: false,
           error: "Accès non autorisé",
@@ -549,7 +703,7 @@ router.post(
 // GET /api/users/stats/overview - Statistiques générales des utilisateurs
 router.get(
   "/stats/overview",
-  authorize("LED_TEAM", "SUPERVISOR"),
+  authorize("led_team", "supervisor"),
   async (req, res, next) => {
     try {
       const userStats = await prisma.user.groupBy({

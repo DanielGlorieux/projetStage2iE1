@@ -1,233 +1,257 @@
 const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const { body, validationResult } = require("express-validator");
-const { authorize } = require("../middleware/auth");
+const { authorize, authenticate } = require("../middleware/auth");
 const XLSX = require("xlsx");
 const PDFDocument = require("pdfkit");
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// POST /api/search/students - Rechercher des étudiants (superviseurs uniquement)
-router.post(
-  "/students",
-  authorize("LED_TEAM", "SUPERVISOR"),
-  [
-    body("nom").optional().isString().withMessage("Nom invalide"),
-    body("email").optional().isEmail().withMessage("Email invalide"),
-    body("filiere")
-      .optional()
-      .isArray()
-      .withMessage("Filière doit être un tableau"),
-    body("niveau")
-      .optional()
-      .isArray()
-      .withMessage("Niveau doit être un tableau"),
-    body("scoreMin")
-      .optional()
-      .isInt({ min: 0, max: 100 })
-      .withMessage("Score minimum invalide"),
-    body("scoreMax")
-      .optional()
-      .isInt({ min: 0, max: 100 })
-      .withMessage("Score maximum invalide"),
-    body("statut")
-      .optional()
-      .isArray()
-      .withMessage("Statut doit être un tableau"),
-    body("typeActivite")
-      .optional()
-      .isArray()
-      .withMessage("Type activité doit être un tableau"),
-  ],
+router.use(authenticate);
+
+// GET /api/search/stats - Statistiques globales
+router.get(
+  "/stats",
+  authorize("led_team", "supervisor"),
   async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          error: "Filtres invalides",
-          details: errors.array(),
-        });
-      }
+      // Statistiques des étudiants
+      const totalStudents = await prisma.user.count({
+        where: { role: "student" },
+      });
 
-      const {
-        nom,
-        email,
-        filiere,
-        niveau,
-        scoreMin,
-        scoreMax,
-        statut,
-        typeActivite,
-        periodeDebut,
-        periodeFin,
-      } = req.body;
+      const studentsWithActivities = await prisma.user.count({
+        where: {
+          role: "student",
+          activities: {
+            some: {},
+          },
+        },
+      });
 
-      // Construire la requête de base pour les utilisateurs
-      const userWhere = {
-        role: "STUDENT",
+      // Statistiques des activités
+      const totalActivities = await prisma.activity.count();
+
+      const activitiesByStatus = await prisma.activity.groupBy({
+        by: ["status"],
+        _count: {
+          id: true,
+        },
+      });
+
+      const activitiesByType = await prisma.activity.groupBy({
+        by: ["type"],
+        _count: {
+          id: true,
+        },
+      });
+
+      // Calcul des scores moyens
+      const evaluations = await prisma.evaluation.findMany({
+        select: {
+          score: true,
+          activity: {
+            select: {
+              type: true,
+            },
+          },
+        },
+      });
+
+      const avgScores = {
+        entrepreneuriat: 0,
+        leadership: 0,
+        digital: 0,
       };
 
-      if (nom) {
-        userWhere.name = {
-          contains: nom,
-          mode: "insensitive",
-        };
+      const scoreCounts = {
+        entrepreneuriat: 0,
+        leadership: 0,
+        digital: 0,
+      };
+
+      evaluations.forEach((eval) => {
+        if (eval.activity && avgScores.hasOwnProperty(eval.activity.type)) {
+          avgScores[eval.activity.type] += eval.score;
+          scoreCounts[eval.activity.type]++;
+        }
+      });
+
+      Object.keys(avgScores).forEach((type) => {
+        if (scoreCounts[type] > 0) {
+          avgScores[type] = Math.round(avgScores[type] / scoreCounts[type]);
+        }
+      });
+
+      // Activités récentes
+      const recentActivities = await prisma.activity.findMany({
+        take: 10,
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          user: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          totalStudents,
+          studentsWithActivities,
+          activeStudentsRate:
+            totalStudents > 0
+              ? Math.round((studentsWithActivities / totalStudents) * 100)
+              : 0,
+          totalActivities,
+          activitiesByStatus: activitiesByStatus.reduce((acc, item) => {
+            acc[item.status] = item._count.id;
+            return acc;
+          }, {}),
+          activitiesByType: activitiesByType.reduce((acc, item) => {
+            acc[item.type] = item._count.id;
+            return acc;
+          }, {}),
+          averageScores: avgScores,
+          globalAverageScore: Math.round(
+            (avgScores.entrepreneuriat +
+              avgScores.leadership +
+              avgScores.digital) /
+              3
+          ),
+          recentActivities: recentActivities.map((activity) => ({
+            id: activity.id,
+            title: activity.title,
+            type: activity.type,
+            status: activity.status,
+            createdAt: activity.createdAt,
+            user: activity.user.name,
+          })),
+        },
+      });
+    } catch (error) {
+      console.error("Erreur stats:", error);
+      res.status(500).json({
+        success: false,
+        error: "Erreur serveur",
+      });
+    }
+  }
+);
+
+// POST /api/search/students - Rechercher des étudiants
+router.post(
+  "/students",
+  authorize("led_team", "supervisor"),
+  async (req, res) => {
+    try {
+      console.log("Recherche reçue avec filtres:", req.body);
+
+      const filters = req.body;
+      const where = {
+        role: "student",
+      };
+
+      if (filters.nom) {
+        where.name = { contains: filters.nom };
       }
 
-      if (email) {
-        userWhere.email = {
-          contains: email,
-          mode: "insensitive",
-        };
+      if (filters.email) {
+        where.email = { contains: filters.email };
       }
 
-      if (filiere && filiere.length > 0) {
-        userWhere.filiere = {
-          in: filiere,
-        };
+      if (filters.filiere && filters.filiere.length > 0) {
+        where.filiere = { in: filters.filiere };
       }
 
-      if (niveau && niveau.length > 0) {
-        userWhere.niveau = {
-          in: niveau,
-        };
+      if (filters.niveau && filters.niveau.length > 0) {
+        where.niveau = { in: filters.niveau };
       }
 
-      // Récupérer les étudiants avec leurs activités
+      console.log(
+        "Condition WHERE construite:",
+        JSON.stringify(where, null, 2)
+      );
+
       const students = await prisma.user.findMany({
-        where: userWhere,
+        where,
         include: {
           activities: {
             include: {
               evaluations: true,
             },
-            where: {
-              ...(typeActivite &&
-                typeActivite.length > 0 && {
-                  type: { in: typeActivite },
-                }),
-              ...(statut &&
-                statut.length > 0 && {
-                  status: { in: statut },
-                }),
-              ...(periodeDebut && {
-                startDate: { gte: new Date(periodeDebut) },
-              }),
-              ...(periodeFin && {
-                endDate: { lte: new Date(periodeFin) },
-              }),
-            },
           },
         },
       });
 
-      // Traiter les résultats
+      console.log("Étudiants trouvés:", students.length);
+
       const results = students.map((student) => {
-        const activities = student.activities;
-        const activitesCompletes = activities.filter(
-          (a) => a.status === "COMPLETED" || a.status === "EVALUATED"
-        ).length;
-        const activitesTotal = activities.length;
-
-        // Calculer les scores par compétence
-        const competences = {
+        const scores = {
           entrepreneuriat: 0,
           leadership: 0,
           digital: 0,
         };
 
-        const competenceCounts = {
+        const counts = {
           entrepreneuriat: 0,
           leadership: 0,
           digital: 0,
         };
 
-        activities.forEach((activity) => {
+        student.activities.forEach((activity) => {
           if (activity.evaluations.length > 0) {
-            const score = activity.evaluations[0].score;
             const type = activity.type.toLowerCase();
-
-            if (competences.hasOwnProperty(type)) {
-              competences[type] += score;
-              competenceCounts[type]++;
+            if (scores.hasOwnProperty(type)) {
+              scores[type] += activity.evaluations[0].score;
+              counts[type]++;
             }
           }
         });
 
-        // Calculer les moyennes
-        Object.keys(competences).forEach((comp) => {
-          if (competenceCounts[comp] > 0) {
-            competences[comp] = Math.round(
-              competences[comp] / competenceCounts[comp]
-            );
+        Object.keys(scores).forEach((type) => {
+          if (counts[type] > 0) {
+            scores[type] = Math.round(scores[type] / counts[type]);
           }
         });
-
-        // Score global (moyenne des trois compétences)
-        const scoreGlobal = Math.round(
-          (competences.entrepreneuriat +
-            competences.leadership +
-            competences.digital) /
-            3
-        );
-
-        // Déterminer le statut global
-        let statutGlobal = "Inactif";
-        if (activitesCompletes > 0) {
-          const ratioCompletion = activitesCompletes / activitesTotal;
-          if (ratioCompletion >= 0.8) statutGlobal = "Excellent";
-          else if (ratioCompletion >= 0.6) statutGlobal = "Bon";
-          else if (ratioCompletion >= 0.4) statutGlobal = "Moyen";
-          else statutGlobal = "En cours";
-        }
 
         return {
           id: student.id,
           nom: student.name,
           email: student.email,
-          filiere: student.filiere || "Non spécifiée",
-          niveau: student.niveau || "Non spécifié",
-          scoreGlobal,
-          statut: statutGlobal,
-          dernierAcces: student.updatedAt.toISOString(),
-          activitesCompletes,
-          activitesTotal,
-          competences,
+          filiere: student.filiere || "",
+          niveau: student.niveau || "",
+          scoreGlobal: Math.round(
+            (scores.entrepreneuriat + scores.leadership + scores.digital) / 3
+          ),
+          statut: "actif",
+          dernierAcces: student.updatedAt,
+          activitesCompletes: student.activities.filter(
+            (a) => a.status === "evaluated"
+          ).length,
+          activitesTotal: student.activities.length,
+          competences: scores,
         };
       });
 
-      // Filtrer par score si spécifié
-      const filteredResults = results.filter((student) => {
-        if (scoreMin !== undefined && student.scoreGlobal < scoreMin)
-          return false;
-        if (scoreMax !== undefined && student.scoreGlobal > scoreMax)
-          return false;
-        return true;
-      });
+      console.log("Résultats transformés:", results.length);
 
       res.json({
         success: true,
-        data: filteredResults,
-        meta: {
-          total: filteredResults.length,
-          filtres: {
-            nom,
-            email,
-            filiere,
-            niveau,
-            scoreMin,
-            scoreMax,
-            statut,
-            typeActivite,
-            periodeDebut,
-            periodeFin,
-          },
-        },
+        data: results,
       });
     } catch (error) {
-      next(error);
+      console.error("Erreur recherche étudiants:", error);
+      res.status(500).json({
+        success: false,
+        error: "Erreur serveur",
+        details: error.message,
+      });
     }
   }
 );
@@ -235,7 +259,7 @@ router.post(
 // POST /api/search/export - Exporter les résultats de recherche
 router.post(
   "/export",
-  authorize("LED_TEAM", "SUPERVISOR"),
+  authorize("led_team", "supervisor"),
   [
     body("filters").isObject().withMessage("Filtres invalides"),
     body("format").isIn(["csv", "excel", "pdf"]).withMessage("Format invalide"),
@@ -254,7 +278,7 @@ router.post(
       const { filters, format } = req.body;
 
       // Construire la requête avec les filtres
-      const userWhere = { role: "STUDENT" };
+      const userWhere = { role: "student" };
 
       if (filters.nom) {
         userWhere.name = {
@@ -309,7 +333,7 @@ router.post(
         .map((student) => {
           const activities = student.activities;
           const activitesCompletes = activities.filter(
-            (a) => a.status === "COMPLETED" || a.status === "EVALUATED"
+            (a) => a.status === "completed" || a.status === "evaluated"
           ).length;
 
           // Calculer scores par compétence
@@ -530,154 +554,16 @@ router.post(
   }
 );
 
-// GET /api/search/stats - Statistiques globales
-router.get(
-  "/stats",
-  authorize("LED_TEAM", "SUPERVISOR"),
-  async (req, res, next) => {
-    try {
-      // Statistiques des étudiants
-      const totalStudents = await prisma.user.count({
-        where: { role: "STUDENT" },
-      });
-
-      const studentsWithActivities = await prisma.user.count({
-        where: {
-          role: "STUDENT",
-          activities: {
-            some: {},
-          },
-        },
-      });
-
-      // Statistiques des activités
-      const totalActivities = await prisma.activity.count();
-
-      const activitiesByStatus = await prisma.activity.groupBy({
-        by: ["status"],
-        _count: {
-          id: true,
-        },
-      });
-
-      const activitiesByType = await prisma.activity.groupBy({
-        by: ["type"],
-        _count: {
-          id: true,
-        },
-      });
-
-      // Score moyen global
-      const evaluations = await prisma.evaluation.findMany({
-        select: {
-          score: true,
-          activity: {
-            select: {
-              type: true,
-            },
-          },
-        },
-      });
-
-      const scoresByType = {
-        ENTREPRENEURIAT: [],
-        LEADERSHIP: [],
-        DIGITAL: [],
-      };
-
-      evaluations.forEach((eval) => {
-        scoresByType[eval.activity.type].push(eval.score);
-      });
-
-      const avgScores = {};
-      Object.keys(scoresByType).forEach((type) => {
-        const scores = scoresByType[type];
-        avgScores[type] =
-          scores.length > 0
-            ? Math.round(
-                scores.reduce((sum, score) => sum + score, 0) / scores.length
-              )
-            : 0;
-      });
-
-      // Activités récentes
-      const recentActivities = await prisma.activity.findMany({
-        where: {
-          createdAt: {
-            gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 derniers jours
-          },
-        },
-        take: 10,
-        include: {
-          user: {
-            select: {
-              name: true,
-              email: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      res.json({
-        success: true,
-        data: {
-          students: {
-            total: totalStudents,
-            withActivities: studentsWithActivities,
-            activeRate:
-              totalStudents > 0
-                ? Math.round((studentsWithActivities / totalStudents) * 100)
-                : 0,
-          },
-          activities: {
-            total: totalActivities,
-            byStatus: activitiesByStatus.reduce((acc, item) => {
-              acc[item.status] = item._count.id;
-              return acc;
-            }, {}),
-            byType: activitiesByType.reduce((acc, item) => {
-              acc[item.type] = item._count.id;
-              return acc;
-            }, {}),
-          },
-          scores: {
-            averages: avgScores,
-            global: Math.round(
-              (avgScores.ENTREPRENEURIAT +
-                avgScores.LEADERSHIP +
-                avgScores.DIGITAL) /
-                3
-            ),
-          },
-          recent: recentActivities.map((activity) => ({
-            id: activity.id,
-            title: activity.title,
-            type: activity.type,
-            status: activity.status,
-            createdAt: activity.createdAt,
-            user: activity.user.name,
-          })),
-        },
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
 // GET /api/search/filters - Obtenir les valeurs disponibles pour les filtres
 router.get(
   "/filters",
-  authorize("LED_TEAM", "SUPERVISOR"),
+  authorize("led_team", "supervisor"),
   async (req, res, next) => {
     try {
       // Récupérer les valeurs uniques pour les filtres
       const filieres = await prisma.user.findMany({
         where: {
-          role: "STUDENT",
+          role: "student",
           filiere: { not: null },
         },
         select: { filiere: true },
@@ -686,7 +572,7 @@ router.get(
 
       const niveaux = await prisma.user.findMany({
         where: {
-          role: "STUDENT",
+          role: "student",
           niveau: { not: null },
         },
         select: { niveau: true },
@@ -694,14 +580,14 @@ router.get(
       });
 
       const statuts = [
-        "PLANNED",
-        "IN_PROGRESS",
-        "COMPLETED",
-        "SUBMITTED",
-        "EVALUATED",
-        "CANCELLED",
+        "planned",
+        "in_progress",
+        "completed",
+        "submitted",
+        "evaluated",
+        "cancelled",
       ];
-      const typesActivite = ["ENTREPRENEURIAT", "LEADERSHIP", "DIGITAL"];
+      const typesActivite = ["entrepreneuriat", "leadership", "digital"];
 
       res.json({
         success: true,
@@ -722,7 +608,7 @@ router.get(
 // GET /api/search/student/:id - Obtenir le détail d'un étudiant
 router.get(
   "/student/:id",
-  authorize("LED_TEAM", "SUPERVISOR"),
+  authorize("led_team", "supervisor"),
   async (req, res, next) => {
     try {
       const { id } = req.params;
@@ -750,7 +636,7 @@ router.get(
         },
       });
 
-      if (!student || student.role !== "STUDENT") {
+      if (!student || student.role !== "student") {
         return res.status(404).json({
           success: false,
           error: "Étudiant non trouvé",
@@ -760,7 +646,7 @@ router.get(
       // Calculer les statistiques
       const activities = student.activities;
       const activitesCompletes = activities.filter(
-        (a) => a.status === "COMPLETED" || a.status === "EVALUATED"
+        (a) => a.status === "completed" || a.status === "evaluated"
       ).length;
 
       const competences = {

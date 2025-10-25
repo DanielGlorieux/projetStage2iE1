@@ -941,7 +941,7 @@ export function Sidebar({
         ...baseItems,
         {
           id: "activities",
-          label: "Mes Activités",
+          label: "Mes Activités LED",
           icon: Target,
           description: "Soumettre et gérer mes projets",
           badge: null,
