@@ -52,6 +52,7 @@ import { Support } from "./pages/Support";
 import { UserGuide } from "./pages/UserGuide";
 import { ContactLED } from "./pages/ContactLED";
 import { StudentProgress } from "./pages/Progress";
+import { Deadlines } from "./pages/Deadlines";
 
 export type UserRole = "student" | "led_team" | "supervisor";
 
@@ -144,6 +145,8 @@ export default function App() {
         return <ActivitySubmission userRole={user.role} />;
       case "progress":
         return <StudentProgress />;
+      case "deadlines":
+        return <Deadlines />;
       case "activity-validation":
         return <ActivityValidation userRole={user.role} />;
       default:
@@ -245,6 +248,7 @@ import { Support } from "./pages/Support";
 import { UserGuide } from "./pages/UserGuide";
 import { ContactLED } from "./pages/ContactLED";
 import { StudentProgress } from "./pages/Progress";
+import { Deadlines } from "./pages/Deadlines";
 
 export type UserRole = "student" | "led_team" | "supervisor";
 
@@ -350,6 +354,8 @@ export default function App() {
         return <ActivitySubmission userRole={user.role} />;
       case "progress":
         return <StudentProgress />;
+      case "deadlines":
+        return <Deadlines />;
       case "activity-validation":
         return <ActivityValidation userRole={user.role} />;
       default:
@@ -445,5 +451,8 @@ export default function App() {
     </div>
   );
 }
+
+
+
 
 

@@ -65,13 +65,7 @@ export function Sidebar({
           label: "Mes activités",
           icon: BookOpen,
           description: "Gestion des activités",
-        },*/
-/*{
-          id: "submissions",
-          label: "Mes rapports",
-          icon: Upload,
-          description: "Soumission et suivi",
-        },*/ /*
+        },
         {
           id: "progress",
           label: "Ma progression",
@@ -79,17 +73,11 @@ export function Sidebar({
           description: "Évolution des compétences",
         },
         {
-          id: "calendar",
+          id: "deadlines",
           label: "Échéances",
           icon: Calendar,
-          description: "Dates importantes",
-        },*/
-/*{
-          id: "achievements",
-          label: "Mes réalisations",
-          icon: Award,
-          description: "Certifications et badges",
-        },*/ /*
+          description: "Dates importantes et deadlines",
+        },
       ];
     }
 
@@ -959,13 +947,6 @@ export function Sidebar({
           icon: UserIcon,
           description: "Informations personnelles",
           badge: null,
-        },
-        {
-          id: "calendar",
-          label: "Échéances",
-          icon: Calendar,
-          description: "Dates importantes et deadlines",
-          badge: "3",
         },
       ];
     }

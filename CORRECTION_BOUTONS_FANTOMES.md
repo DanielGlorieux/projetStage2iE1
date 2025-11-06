@@ -181,16 +181,25 @@ Cette correction identifie et répare tous les boutons "fantômes" (boutons sans
 **Solutions** : Ajout de liens vers le site 2iE, la prise de rendez-vous et la localisation.
 
 ## Total des Corrections
-- **17 boutons fantômes** identifiés et corrigés
-- **7 fichiers** modifiés :
-  - ActivitySubmission.tsx (1 bouton)
-  - ActivityValidation.tsx (2 boutons)
-  - Search.tsx (3 boutons)
-  - Reports.tsx (2 boutons)
-  - ScholarManagement.tsx (5 boutons)
-  - Support.tsx (3 boutons)
-  - ContactLED.tsx (3 boutons)
-- **100%** des boutons maintenant fonctionnels
+- **24 boutons fantômes** traités (17 corrigés, 7 supprimés)
+- **9 fichiers** modifiés :
+  - ActivitySubmission.tsx (1 bouton corrigé)
+  - ActivityValidation.tsx (2 boutons corrigés)
+  - Search.tsx (3 boutons corrigés)
+  - Reports.tsx (2 boutons corrigés)
+  - ScholarManagement.tsx (5 boutons corrigés)
+  - Support.tsx (3 boutons corrigés)
+  - ContactLED.tsx (3 boutons corrigés)
+  - Progress.tsx (2 boutons supprimés - "Voir détails" et "Modifier")
+  - Deadlines.tsx (2 boutons supprimés - "Voir détails" et "Modifier")
+- **100%** des boutons maintenant fonctionnels ou supprimés
+
+### Boutons Supprimés (Progress.tsx et Deadlines.tsx)
+Les boutons "Voir détails" et "Modifier" dans la liste des activités ont été supprimés car :
+- Non fonctionnels dans ces contextes
+- Navigation confuse (redirection vers d'autres pages)
+- Les actions sont disponibles via le menu "Mes activités"
+- Simplifie l'interface en gardant uniquement les informations essentielles
 
 ## Notes Techniques
 - Tous les gestionnaires utilisent des fonctions existantes ou des actions natives du navigateur

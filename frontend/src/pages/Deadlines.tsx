@@ -9,12 +9,7 @@ import {
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "../components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -23,18 +18,10 @@ import {
   Bell,
   Target,
   TrendingUp,
-  Filter,
   Plus,
 } from "lucide-react";
 import { activityService, Activity } from "../services/activityService";
-import {
-  format,
-  addDays,
-  differenceInDays,
-  isPast,
-  isFuture,
-  isToday,
-} from "date-fns";
+import { format, addDays, differenceInDays, isPast, isFuture, isToday } from "date-fns";
 import { fr } from "date-fns/locale";
 
 interface ActivityWithDeadline extends Activity {
@@ -50,7 +37,7 @@ interface DeadlineStats {
   total: number;
 }
 
-export function StudentProgress() {
+export function Deadlines() {
   const [activities, setActivities] = useState<ActivityWithDeadline[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -71,21 +58,20 @@ export function StudentProgress() {
     try {
       setLoading(true);
       const response = await activityService.getActivities();
-
+      
       if (response.success && response.data) {
         // Calculer les deadlines et urgences
         const activitiesWithDeadlines = response.data
-          .filter(
-            (activity: Activity) =>
-              activity.status !== "completed" &&
-              activity.status !== "evaluated" &&
-              activity.endDate
+          .filter((activity: Activity) => 
+            activity.status !== "completed" && 
+            activity.status !== "evaluated" &&
+            activity.endDate
           )
           .map((activity: Activity) => {
             const endDate = new Date(activity.endDate!);
             const today = new Date();
             const daysUntil = differenceInDays(endDate, today);
-
+            
             let urgency: "overdue" | "urgent" | "soon" | "normal" = "normal";
             if (isPast(endDate) && !isToday(endDate)) {
               urgency = "overdue";
@@ -103,9 +89,7 @@ export function StudentProgress() {
           })
           .sort((a, b) => {
             if (!a.endDate || !b.endDate) return 0;
-            return (
-              new Date(a.endDate).getTime() - new Date(b.endDate).getTime()
-            );
+            return new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
           });
 
         setActivities(activitiesWithDeadlines);
@@ -116,17 +100,13 @@ export function StudentProgress() {
         const monthFromNow = addDays(now, 30);
 
         const newStats = {
-          overdue: activitiesWithDeadlines.filter(
-            (a) => a.urgency === "overdue"
-          ).length,
-          today: activitiesWithDeadlines.filter((a) =>
-            isToday(new Date(a.endDate!))
-          ).length,
-          thisWeek: activitiesWithDeadlines.filter((a) => {
+          overdue: activitiesWithDeadlines.filter(a => a.urgency === "overdue").length,
+          today: activitiesWithDeadlines.filter(a => isToday(new Date(a.endDate!))).length,
+          thisWeek: activitiesWithDeadlines.filter(a => {
             const endDate = new Date(a.endDate!);
             return isFuture(endDate) && endDate <= weekFromNow;
           }).length,
-          thisMonth: activitiesWithDeadlines.filter((a) => {
+          thisMonth: activitiesWithDeadlines.filter(a => {
             const endDate = new Date(a.endDate!);
             return isFuture(endDate) && endDate <= monthFromNow;
           }).length,
@@ -148,9 +128,9 @@ export function StudentProgress() {
       case "overdue":
         return <Badge variant="destructive">En retard</Badge>;
       case "urgent":
-        return <Badge className="bg-orange-500">Aujourd'hui</Badge>;
+        return <Badge className="bg-orange-500 text-white">Aujourd'hui</Badge>;
       case "soon":
-        return <Badge className="bg-yellow-500">Cette semaine</Badge>;
+        return <Badge className="bg-yellow-500 text-white">Cette semaine</Badge>;
       default:
         return <Badge variant="outline">À venir</Badge>;
     }
@@ -172,11 +152,11 @@ export function StudentProgress() {
   const filterActivities = (activities: ActivityWithDeadline[]) => {
     switch (activeTab) {
       case "overdue":
-        return activities.filter((a) => a.urgency === "overdue");
+        return activities.filter(a => a.urgency === "overdue");
       case "urgent":
-        return activities.filter((a) => a.urgency === "urgent");
+        return activities.filter(a => a.urgency === "urgent");
       case "week":
-        return activities.filter((a) => a.urgency === "soon");
+        return activities.filter(a => a.urgency === "soon");
       default:
         return activities;
     }
@@ -223,6 +203,13 @@ export function StudentProgress() {
             Suivez les deadlines de vos activités LED
           </p>
         </div>
+        <Button
+          onClick={() => window.location.href = "/activities"}
+          className="bg-gradient-to-r from-blue-600 to-green-600"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Nouvelle activité
+        </Button>
       </div>
 
       {/* Statistiques d'échéances */}
@@ -233,9 +220,7 @@ export function StudentProgress() {
             <AlertTriangle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {stats.overdue}
-            </div>
+            <div className="text-2xl font-bold text-red-600">{stats.overdue}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Activités dépassées
             </p>
@@ -248,9 +233,7 @@ export function StudentProgress() {
             <Bell className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {stats.today}
-            </div>
+            <div className="text-2xl font-bold text-orange-600">{stats.today}</div>
             <p className="text-xs text-muted-foreground mt-1">
               À rendre aujourd'hui
             </p>
@@ -263,9 +246,7 @@ export function StudentProgress() {
             <Clock className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {stats.thisWeek}
-            </div>
+            <div className="text-2xl font-bold text-yellow-600">{stats.thisWeek}</div>
             <p className="text-xs text-muted-foreground mt-1">
               7 prochains jours
             </p>
@@ -278,9 +259,7 @@ export function StudentProgress() {
             <CalendarIcon className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {stats.thisMonth}
-            </div>
+            <div className="text-2xl font-bold text-blue-600">{stats.thisMonth}</div>
             <p className="text-xs text-muted-foreground mt-1">
               30 prochains jours
             </p>
@@ -293,9 +272,7 @@ export function StudentProgress() {
             <Target className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {stats.total}
-            </div>
+            <div className="text-2xl font-bold text-green-600">{stats.total}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Activités en cours
             </p>
@@ -306,7 +283,9 @@ export function StudentProgress() {
       {/* Tabs de filtrage */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="all">Toutes ({activities.length})</TabsTrigger>
+          <TabsTrigger value="all">
+            Toutes ({activities.length})
+          </TabsTrigger>
           <TabsTrigger value="overdue" className="text-red-600">
             En retard ({stats.overdue})
           </TabsTrigger>
@@ -325,18 +304,14 @@ export function StudentProgress() {
                 <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
                 <h3 className="text-xl font-semibold mb-2">Aucune échéance</h3>
                 <p className="text-muted-foreground">
-                  Vous n'avez pas d'activité avec une deadline dans cette
-                  catégorie.
+                  Vous n'avez pas d'activité avec une deadline dans cette catégorie.
                 </p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-4">
               {filteredActivities.map((activity) => (
-                <Card
-                  key={activity.id}
-                  className="hover:shadow-lg transition-shadow"
-                >
+                <Card key={activity.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                       <div className="flex-1">
@@ -359,28 +334,22 @@ export function StudentProgress() {
                       <div className="flex items-center gap-2">
                         <CalendarIcon className="w-4 h-4 text-muted-foreground" />
                         <span className="font-medium">
-                          {format(new Date(activity.endDate!), "dd MMMM yyyy", {
-                            locale: fr,
-                          })}
+                          {format(new Date(activity.endDate!), "dd MMMM yyyy", { locale: fr })}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-muted-foreground" />
-                        <span
-                          className={
-                            activity.urgency === "overdue"
-                              ? "font-bold text-red-600"
-                              : activity.urgency === "urgent"
-                              ? "font-bold text-orange-600"
-                              : ""
-                          }
-                        >
+                        <span className={
+                          activity.urgency === "overdue" 
+                            ? "font-bold text-red-600" 
+                            : activity.urgency === "urgent"
+                            ? "font-bold text-orange-600"
+                            : ""
+                        }>
                           {activity.daysUntilDeadline === 0
                             ? "Aujourd'hui"
                             : activity.daysUntilDeadline! < 0
-                            ? `${Math.abs(
-                                activity.daysUntilDeadline!
-                              )} jour(s) de retard`
+                            ? `${Math.abs(activity.daysUntilDeadline!)} jour(s) de retard`
                             : `Dans ${activity.daysUntilDeadline} jour(s)`}
                         </span>
                       </div>
@@ -399,9 +368,7 @@ export function StudentProgress() {
                             <li key={idx}>{obj}</li>
                           ))}
                           {activity.objectives.length > 2 && (
-                            <li className="text-blue-600">
-                              +{activity.objectives.length - 2} autres...
-                            </li>
+                            <li className="text-blue-600">+{activity.objectives.length - 2} autres...</li>
                           )}
                         </ul>
                       </div>
