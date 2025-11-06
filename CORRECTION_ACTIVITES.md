@@ -95,3 +95,42 @@ Authorization: Bearer <votre-token>
 ✅ Les changements sont **rétrocompatibles** avec la base de données existante
 ✅ Le frontend n'a pas besoin de modifications
 ✅ Le schéma Prisma reste inchangé
+
+---
+
+# Correction du bouton "Eye" (Voir les détails)
+
+## Problème
+Lorsqu'on clique sur le bouton "œil" dans la liste des activités, une erreur JavaScript se produit :
+```
+Uncaught ReferenceError: setViewingActivity is not defined
+```
+
+## Cause
+Le bouton a été ajouté avec un gestionnaire `onClick={() => setViewingActivity(activity)}`, mais la variable d'état `viewingActivity` n'était pas déclarée dans le composant actif.
+
+## Solution
+
+### 1. Ajout de l'état viewingActivity
+```tsx
+const [viewingActivity, setViewingActivity] = useState<Activity | null>(null);
+```
+
+### 2. Création d'un Dialog de visualisation
+Un nouveau Dialog a été ajouté pour afficher les détails complets de l'activité :
+- **Informations générales** : Type, statut, priorité
+- **Description complète**
+- **Dates** : Début et fin
+- **Objectifs** : Liste des objectifs
+- **Résultats** : Liste des résultats obtenus
+- **Actions** : Boutons "Fermer" et "Modifier"
+
+### Fonctionnalités
+✅ Affichage en lecture seule des détails complets
+✅ Design moderne et responsive
+✅ Scroll vertical si nécessaire
+✅ Bouton de modification rapide
+✅ Fermeture avec ESC ou clic en dehors
+
+## Fichier modifié
+- `frontend/src/pages/ActivitySubmission.tsx`

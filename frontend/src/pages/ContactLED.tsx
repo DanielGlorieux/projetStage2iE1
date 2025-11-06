@@ -432,17 +432,32 @@ export function ContactLED({ onBackToLogin }: ContactLEDProps) {
                 <CardTitle>Liens utiles</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => window.open('https://www.2ie-edu.org', '_blank')}
+                  title="Visiter le site web de 2iE"
+                >
                   <Globe className="w-4 h-4 mr-2" />
                   Site web 2iE
                   <ExternalLink className="w-4 h-4 ml-auto" />
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => window.open('https://calendly.com/led-2ie', '_blank')}
+                  title="Prendre un rendez-vous"
+                >
                   <Calendar className="w-4 h-4 mr-2" />
                   Prendre rendez-vous
                   <ExternalLink className="w-4 h-4 ml-auto" />
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => window.open('https://maps.google.com/?q=2iE+Ouagadougou', '_blank')}
+                  title="Voir la localisation sur Google Maps"
+                >
                   <Building className="w-4 h-4 mr-2" />
                   Localisation campus
                   <ExternalLink className="w-4 h-4 ml-auto" />

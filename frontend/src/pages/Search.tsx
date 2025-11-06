@@ -1080,13 +1080,35 @@ export function Search({ userRole }: SearchProps) {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
-                              <Button size="icon" variant="ghost">
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                onClick={() => {
+                                  // Créer un alert simple avec les infos de l'étudiant
+                                  alert(`Détails de ${student.nom}\n\nEmail: ${student.email}\nFilière: ${student.filiere}\nNiveau: ${student.niveau}\nScore: ${student.scoreGlobal}%`);
+                                }}
+                                title="Voir les détails"
+                              >
                                 <Eye className="w-4 h-4" />
                               </Button>
-                              <Button size="icon" variant="ghost">
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                onClick={() => window.location.href = `mailto:${student.email}`}
+                                title="Envoyer un email"
+                              >
                                 <Mail className="w-4 h-4" />
                               </Button>
-                              <Button size="icon" variant="ghost">
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                onClick={() => {
+                                  // Copier l'email dans le presse-papiers
+                                  navigator.clipboard.writeText(student.email);
+                                  alert(`Email copié: ${student.email}`);
+                                }}
+                                title="Copier l'email"
+                              >
                                 <Phone className="w-4 h-4" />
                               </Button>
                             </div>

@@ -470,7 +470,12 @@ export function Support({ onBackToLogin }: SupportProps) {
                     Découvrez comment utiliser la plateforme LED avec nos
                     tutoriels vidéo.
                   </p>
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => window.open('https://www.youtube.com/@led-tutorials', '_blank')}
+                    title="Accéder aux tutoriels vidéo"
+                  >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Voir les vidéos
                   </Button>
@@ -493,7 +498,15 @@ export function Support({ onBackToLogin }: SupportProps) {
                   <p className="text-sm text-gray-600 mb-4">
                     Manuel détaillé pour utiliser toutes les fonctionnalités.
                   </p>
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => {
+                      // Télécharger le PDF du guide
+                      window.open('/docs/guide-utilisation-led.pdf', '_blank');
+                    }}
+                    title="Télécharger le guide PDF"
+                  >
                     <Download className="w-4 h-4 mr-2" />
                     Télécharger PDF
                   </Button>
@@ -518,7 +531,12 @@ export function Support({ onBackToLogin }: SupportProps) {
                   <p className="text-sm text-gray-600 mb-4">
                     Participez à nos sessions de formation en ligne.
                   </p>
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => window.open('https://calendly.com/led-formation', '_blank')}
+                    title="S'inscrire aux formations"
+                  >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     S'inscrire
                   </Button>

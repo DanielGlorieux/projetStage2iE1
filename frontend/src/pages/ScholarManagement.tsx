@@ -333,11 +333,24 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button 
+            variant="outline"
+            onClick={() => {
+              // Fonction d'export à implémenter
+              alert('Export en cours de développement');
+            }}
+            title="Exporter les données"
+          >
             <Download className="w-4 h-4 mr-2" />
             Exporter
           </Button>
-          <Button>
+          <Button
+            onClick={() => {
+              // Ouvrir le formulaire de création
+              alert('Formulaire de création de boursier');
+            }}
+            title="Ajouter un nouveau boursier"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Nouveau boursier
           </Button>
@@ -370,7 +383,14 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
                 <option value="graduated">Diplômé</option>
                 <option value="suspended">Suspendu</option>
               </select>
-              <Button variant="outline">
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  // Ouvrir le panneau de filtres avancés
+                  alert('Filtres avancés en cours de développement');
+                }}
+                title="Afficher plus de filtres"
+              >
                 <Filter className="w-4 h-4 mr-2" />
                 Plus de filtres
               </Button>
@@ -462,7 +482,16 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
                           <ScholarDetailsModal scholar={selectedScholar} />
                         )}
                       </Dialog>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedScholar(scholar);
+                          // Ouvrir un modal ou naviguer vers la page d'édition
+                          alert(`Éditer le boursier: ${scholar.name}`);
+                        }}
+                        title="Modifier le boursier"
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                     </div>
@@ -900,10 +929,24 @@ export function ScholarManagement({ userRole }: ScholarManagementProps) {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            alert(`Voir détails: ${scholar.name}`);
+                          }}
+                          title="Voir les détails"
+                        >
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            alert(`Éditer: ${scholar.name}`);
+                          }}
+                          title="Modifier le boursier"
+                        >
                           <Edit className="w-4 h-4" />
                         </Button>
                       </div>

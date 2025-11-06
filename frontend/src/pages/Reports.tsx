@@ -443,10 +443,23 @@ export function Reports({ userRole }: ReportsProps) {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          // Ouvrir un modal d'édition ou naviguer vers une page d'édition
+                          alert(`Modifier le rapport: ${template.name}`);
+                        }}
+                        title="Modifier ce rapport"
+                      >
                         Modifier
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => generateReport(template.id, 'pdf')}
+                        title="Télécharger le dernier rapport"
+                      >
                         <Download className="w-4 h-4" />
                       </Button>
                     </div>

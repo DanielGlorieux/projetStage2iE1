@@ -2482,6 +2482,7 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
 
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [viewingActivity, setViewingActivity] = useState<Activity | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
@@ -3033,10 +3034,16 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleEditActivity(activity)}
+                      title="Modifier l'activité"
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setViewingActivity(activity)}
+                      title="Voir les détails"
+                    >
                       <Eye className="w-4 h-4" />
                     </Button>
                   </div>
@@ -3803,6 +3810,81 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
               </DialogFooter>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de visualisation des détails */}
+      <Dialog open={!!viewingActivity} onOpenChange={() => setViewingActivity(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">{viewingActivity?.title}</DialogTitle>
+          </DialogHeader>
+          {viewingActivity && (
+            <div className="space-y-6">
+              <div className="flex gap-2">
+                <Badge variant="outline">{viewingActivity.type}</Badge>
+                {getStatusBadge(viewingActivity.status)}
+                <Badge variant="secondary" className="capitalize">
+                  {viewingActivity.priority}
+                </Badge>
+              </div>
+
+              <div>
+                <h3 className="font-semibold mb-2">Description</h3>
+                <p className="text-sm text-muted-foreground">{viewingActivity.description}</p>
+              </div>
+
+              {viewingActivity.startDate && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="font-semibold mb-2">Date de début</h3>
+                    <p className="text-sm">{new Date(viewingActivity.startDate).toLocaleDateString('fr-FR')}</p>
+                  </div>
+                  {viewingActivity.endDate && (
+                    <div>
+                      <h3 className="font-semibold mb-2">Date de fin</h3>
+                      <p className="text-sm">{new Date(viewingActivity.endDate).toLocaleDateString('fr-FR')}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {viewingActivity.objectives && viewingActivity.objectives.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-2">Objectifs</h3>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    {viewingActivity.objectives.map((obj, index) => (
+                      <li key={index}>{obj}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {viewingActivity.outcomes && viewingActivity.outcomes.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-2">Résultats</h3>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    {viewingActivity.outcomes.map((outcome, index) => (
+                      <li key={index}>{outcome}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex gap-4 pt-4 border-t">
+                <Button variant="outline" onClick={() => setViewingActivity(null)}>
+                  Fermer
+                </Button>
+                <Button onClick={() => {
+                  setViewingActivity(null);
+                  handleEditActivity(viewingActivity);
+                }}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Modifier
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

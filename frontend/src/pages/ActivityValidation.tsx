@@ -788,7 +788,12 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
                           ({formatFileSize(doc.size)})
                         </span>
                       </div>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => window.open(doc.url, '_blank')}
+                        title="Télécharger le document"
+                      >
                         <Download className="w-3 h-3" />
                       </Button>
                     </div>
@@ -962,7 +967,12 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
                               </p>
                             </div>
                           </div>
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => window.open(doc.url, '_blank')}
+                            title="Télécharger le document"
+                          >
                             <Download className="w-3 h-3" />
                           </Button>
                         </div>
