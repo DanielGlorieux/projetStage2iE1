@@ -114,6 +114,7 @@ interface ApiResponse<T> {
   data?: T;
   message?: string;
   error?: string;
+  details?: any[];
 }
 
 class ApiClient {
@@ -142,7 +143,12 @@ class ApiClient {
     try {
       const result = await response.json();
       if (!response.ok) {
-        return { success: false, error: result.error || response.statusText };
+        console.error('API Error:', result);
+        return { 
+          success: false, 
+          error: result.error || response.statusText,
+          details: result.details // Inclure les détails de validation
+        };
       }
       return { success: true, ...result };
     } catch {

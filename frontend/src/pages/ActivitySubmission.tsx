@@ -2744,6 +2744,16 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
       return;
     }
 
+    // Vérifier que chaque objectif a au moins 10 caractères
+    const shortObjectives = formData.objectives.filter(
+      (obj) => obj.trim() && obj.trim().length < 10
+    );
+    if (shortObjectives.length > 0) {
+      setError("Chaque objectif doit contenir au moins 10 caractères");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const activityData = {
         title: formData.title,
@@ -2802,7 +2812,16 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
         refetch();
         setTimeout(() => setSuccess(""), 5000);
       } else {
-        setError(response.error || "Erreur lors de la sauvegarde");
+        // Afficher les détails de validation si disponibles
+        if (response.details && response.details.length > 0) {
+          const validationErrors = response.details
+            .map((detail: any) => `${detail.path || detail.param}: ${detail.msg}`)
+            .join(', ');
+          setError(`Erreur de validation: ${validationErrors}`);
+          console.error('Détails de validation:', response.details);
+        } else {
+          setError(response.error || "Erreur lors de la sauvegarde");
+        }
       }
     } catch (error) {
       console.error("Erreur:", error);
@@ -3371,6 +3390,9 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                   {/* Objectifs */}
                   <div>
                     <Label>Objectifs du projet *</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Chaque objectif doit contenir au moins 10 caractères
+                    </p>
                     <div className="space-y-2 mt-2">
                       {formData.objectives.map((objective, index) => (
                         <div key={index} className="flex gap-2">
@@ -3383,7 +3405,7 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
                                 e.target.value
                               )
                             }
-                            placeholder="Décrivez un objectif de ce projet..."
+                            placeholder="Décrivez un objectif de ce projet (minimum 10 caractères)..."
                             rows={2}
                             disabled={isLoading}
                           />
