@@ -261,7 +261,6 @@ router.post(
   "/export",
   authorize("led_team", "supervisor"),
   [
-    body("filters").isObject().withMessage("Filtres invalides"),
     body("format").isIn(["csv", "excel", "pdf"]).withMessage("Format invalide"),
   ],
   async (req, res, next) => {
@@ -275,31 +274,37 @@ router.post(
         });
       }
 
-      const { filters, format } = req.body;
+      const { studentIds, filters, format } = req.body;
 
-      // Construire la requête avec les filtres
+      // Construire la requête avec les filtres ou les IDs
       const userWhere = { role: "student" };
 
-      if (filters.nom) {
-        userWhere.name = {
-          contains: filters.nom,
-          mode: "insensitive",
-        };
-      }
+      if (studentIds && Array.isArray(studentIds) && studentIds.length > 0) {
+        // Si des IDs sont fournis, on les utilise directement
+        userWhere.id = { in: studentIds };
+      } else if (filters) {
+        // Sinon, on utilise les filtres
+        if (filters.nom) {
+          userWhere.name = {
+            contains: filters.nom,
+            mode: "insensitive",
+          };
+        }
 
-      if (filters.email) {
-        userWhere.email = {
-          contains: filters.email,
-          mode: "insensitive",
-        };
-      }
+        if (filters.email) {
+          userWhere.email = {
+            contains: filters.email,
+            mode: "insensitive",
+          };
+        }
 
-      if (filters.filiere && filters.filiere.length > 0) {
-        userWhere.filiere = { in: filters.filiere };
-      }
+        if (filters.filiere && filters.filiere.length > 0) {
+          userWhere.filiere = { in: filters.filiere };
+        }
 
-      if (filters.niveau && filters.niveau.length > 0) {
-        userWhere.niveau = { in: filters.niveau };
+        if (filters.niveau && filters.niveau.length > 0) {
+          userWhere.niveau = { in: filters.niveau };
+        }
       }
 
       const students = await prisma.user.findMany({
@@ -309,7 +314,7 @@ router.post(
             include: {
               evaluations: true,
             },
-            where: {
+            where: filters ? {
               ...(filters.typeActivite &&
                 filters.typeActivite.length > 0 && {
                   type: { in: filters.typeActivite },
@@ -324,7 +329,7 @@ router.post(
               ...(filters.periodeFin && {
                 endDate: { lte: new Date(filters.periodeFin) },
               }),
-            },
+            } : {},
           },
         },
       });
@@ -361,11 +366,13 @@ router.post(
             (scores.entrepreneuriat + scores.leadership + scores.digital) / 3
           );
 
-          // Filtrer par score si spécifié
-          if (filters.scoreMin !== undefined && scoreGlobal < filters.scoreMin)
-            return null;
-          if (filters.scoreMax !== undefined && scoreGlobal > filters.scoreMax)
-            return null;
+          // Filtrer par score si spécifié (seulement si on utilise des filtres)
+          if (filters) {
+            if (filters.scoreMin !== undefined && scoreGlobal < filters.scoreMin)
+              return null;
+            if (filters.scoreMax !== undefined && scoreGlobal > filters.scoreMax)
+              return null;
+          }
 
           return {
             Nom: student.name,
@@ -460,20 +467,27 @@ router.post(
         // Résumé des filtres appliqués
         doc.fontSize(14).text("Filtres appliqués:", { underline: true });
         doc.fontSize(10);
-        if (filters.nom) doc.text(`• Nom: ${filters.nom}`);
-        if (filters.email) doc.text(`• Email: ${filters.email}`);
-        if (filters.filiere && filters.filiere.length > 0)
-          doc.text(`• Filière: ${filters.filiere.join(", ")}`);
-        if (filters.niveau && filters.niveau.length > 0)
-          doc.text(`• Niveau: ${filters.niveau.join(", ")}`);
-        if (filters.scoreMin !== undefined)
-          doc.text(`• Score minimum: ${filters.scoreMin}`);
-        if (filters.scoreMax !== undefined)
-          doc.text(`• Score maximum: ${filters.scoreMax}`);
-        if (filters.typeActivite && filters.typeActivite.length > 0)
-          doc.text(`• Type d'activité: ${filters.typeActivite.join(", ")}`);
-        if (filters.statut && filters.statut.length > 0)
-          doc.text(`• Statut: ${filters.statut.join(", ")}`);
+        
+        if (studentIds && studentIds.length > 0) {
+          doc.text(`• Export de ${studentIds.length} étudiant(s) sélectionné(s)`);
+        } else if (filters) {
+          if (filters.nom) doc.text(`• Nom: ${filters.nom}`);
+          if (filters.email) doc.text(`• Email: ${filters.email}`);
+          if (filters.filiere && filters.filiere.length > 0)
+            doc.text(`• Filière: ${filters.filiere.join(", ")}`);
+          if (filters.niveau && filters.niveau.length > 0)
+            doc.text(`• Niveau: ${filters.niveau.join(", ")}`);
+          if (filters.scoreMin !== undefined)
+            doc.text(`• Score minimum: ${filters.scoreMin}`);
+          if (filters.scoreMax !== undefined)
+            doc.text(`• Score maximum: ${filters.scoreMax}`);
+          if (filters.typeActivite && filters.typeActivite.length > 0)
+            doc.text(`• Type d'activité: ${filters.typeActivite.join(", ")}`);
+          if (filters.statut && filters.statut.length > 0)
+            doc.text(`• Statut: ${filters.statut.join(", ")}`);
+        } else {
+          doc.text("• Tous les étudiants");
+        }
         doc.moveDown(2);
 
         // Statistiques globales
