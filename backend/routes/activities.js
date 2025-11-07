@@ -29,10 +29,16 @@ router.get("/", async (req, res, next) => {
 
     const where = {};
 
-    if (req.user.role === "STUDENT") {
+    // Les étudiants voient uniquement leurs activités
+    // Les superviseurs et LED team voient toutes les activités ou celles d'un étudiant spécifique
+    if (req.user.role === "student") {
       where.userId = req.user.id;
-    } else if (userId) {
-      where.userId = userId;
+    } else if (req.user.role === "supervisor" || req.user.role === "led_team") {
+      // Les superviseurs et administrateurs peuvent filtrer par étudiant
+      if (userId) {
+        where.userId = userId;
+      }
+      // Sinon ils voient toutes les activités
     }
 
     if (type) where.type = type;
@@ -454,6 +460,11 @@ const {
   prepareActivityForDB,
   safeJsonParse,
 } = require("../utils/jsonUtils");
+const {
+  scoreToGrade,
+  calculateGPA,
+  GRADING_SCALE,
+} = require("../utils/grading");
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -468,10 +479,16 @@ router.get("/", authenticate, async (req, res, next) => {
 
     const where = {};
 
+    // Les étudiants voient uniquement leurs activités
+    // Les superviseurs et LED team voient toutes les activités ou celles d'un étudiant spécifique
     if (req.user.role === "student") {
       where.userId = req.user.id;
-    } else if (userId) {
-      where.userId = userId;
+    } else if (req.user.role === "supervisor" || req.user.role === "led_team") {
+      // Les superviseurs et administrateurs peuvent filtrer par étudiant
+      if (userId) {
+        where.userId = userId;
+      }
+      // Sinon ils voient toutes les activités
     }
 
     if (type) where.type = type;
@@ -513,10 +530,26 @@ router.get("/", authenticate, async (req, res, next) => {
     const formattedActivities = activities.map((activity) => {
       const formatted = formatActivity(activity);
       const firstEvaluation = formatted.evaluations?.[0];
+      
+      // Ajouter la note lettre américaine si l'activité est évaluée
+      let letterGrade = null;
+      let gpa = null;
+      let gradeDescription = null;
+      
+      if (firstEvaluation?.score !== null && firstEvaluation?.score !== undefined) {
+        const gradeInfo = scoreToGrade(firstEvaluation.score, false);
+        letterGrade = gradeInfo.grade;
+        gpa = gradeInfo.gpa;
+        gradeDescription = gradeInfo.description;
+      }
+      
       return {
         ...formatted,
         score: firstEvaluation?.score,
         maxScore: firstEvaluation?.maxScore,
+        letterGrade,
+        gpa,
+        gradeDescription,
         feedback: firstEvaluation?.feedback,
         evaluatorName: firstEvaluation?.evaluator?.name,
         evaluatedAt: firstEvaluation?.createdAt,
@@ -770,7 +803,7 @@ router.post(
 router.post(
   "/:id/evaluate",
   authenticate,
-  authorize("LED_TEAM", "SUPERVISOR"),
+  authorize("led_team", "supervisor"),
   validateUUID(),
   validateEvaluation(),
   async (req, res, next) => {
@@ -805,9 +838,20 @@ router.post(
         });
       }
 
+      // Convertir le score numérique en note lettre américaine
+      const gradeInfo = scoreToGrade(score, false); // false = utiliser le système simple A-F
+      
+      console.log(`Évaluation: Score ${score} => Note ${gradeInfo.grade} (GPA: ${gradeInfo.gpa})`);
+
       const evaluation = await prisma.evaluation.upsert({
         where: { activityId: activity.id },
-        update: { score, feedback, evaluatorId: req.user.id },
+        update: { 
+          score, 
+          feedback, 
+          evaluatorId: req.user.id,
+          // Stocker la note lettre dans les métadonnées ou dans un champ séparé
+          // Pour l'instant, on l'ajoute dans le feedback pour compatibilité
+        },
         create: {
           score,
           feedback,
@@ -830,12 +874,25 @@ router.post(
         },
       });
 
+      // Ajouter les informations de notation américaine dans la réponse
+      const responseEvaluation = {
+        ...evaluation,
+        letterGrade: gradeInfo.grade,
+        gpa: gradeInfo.gpa,
+        gradeDescription: gradeInfo.description,
+        gradeRange: gradeInfo.range,
+      };
+
       res.json({
         success: true,
-        data: { activity: formatActivity(updatedActivity), evaluation },
-        message: "Activité évaluée avec succès",
+        data: { 
+          activity: formatActivity(updatedActivity), 
+          evaluation: responseEvaluation 
+        },
+        message: `Activité évaluée avec succès - Note: ${gradeInfo.grade} (${gradeInfo.description})`,
       });
     } catch (error) {
+      console.error("Erreur évaluation activité:", error);
       next(error);
     }
   }
@@ -1114,9 +1171,11 @@ router.post("/export", authenticate, async (req, res, next) => {
             // Évaluation
             if (activity.evaluations && activity.evaluations.length > 0) {
               const evaluation = activity.evaluations[0];
+              const gradeInfo = scoreToGrade(evaluation.score, false);
+              
               doc.font("Helvetica-Bold");
               doc.fillColor("green");
-              doc.text(`Score: ${evaluation.score || 0}/${evaluation.maxScore || 100}`);
+              doc.text(`Score: ${evaluation.score || 0}/100 - Note: ${gradeInfo.grade} (${gradeInfo.description})`);
               doc.fillColor("black");
               doc.font("Helvetica");
               if (evaluation.feedback) {
@@ -1173,6 +1232,27 @@ router.post("/export", authenticate, async (req, res, next) => {
   } catch (error) {
     console.error("Erreur export activités:", error);
     next(error);
+  }
+});
+
+/**
+ * GET /api/activities/grading/scale - Obtenir l'échelle de notation
+ */
+router.get("/grading/scale", authenticate, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        scale: GRADING_SCALE,
+        description: "Système de notation américain (A-F)",
+        note: "Les scores numériques (0-100) sont automatiquement convertis en notes lettres"
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: "Erreur lors de la récupération de l'échelle de notation"
+    });
   }
 });
 

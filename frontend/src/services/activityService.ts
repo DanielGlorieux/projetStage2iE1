@@ -36,9 +36,22 @@ export interface Activity {
 }
 
 export const activityService = {
-  getActivities: async (userId?: string) => {
+  getActivities: async (filters?: { status?: string; type?: string; userId?: string }) => {
     try {
-      const endpoint = userId ? `/activities?userId=${userId}` : "/activities";
+      let endpoint = "/activities";
+      const params = new URLSearchParams();
+      
+      if (filters) {
+        if (filters.userId) params.append("userId", filters.userId);
+        if (filters.status) params.append("status", filters.status);
+        if (filters.type) params.append("type", filters.type);
+      }
+      
+      const queryString = params.toString();
+      if (queryString) {
+        endpoint += `?${queryString}`;
+      }
+      
       console.log("Fetching activities from:", endpoint);
       const response = await apiClient.get<Activity[]>(endpoint);
       console.log("Activities response:", response);

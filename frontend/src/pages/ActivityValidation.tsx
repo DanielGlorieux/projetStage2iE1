@@ -1135,21 +1135,38 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
       if (filterStatus !== "all") filters.status = filterStatus;
       if (filterType !== "all") filters.type = filterType;
 
+      console.log("🔍 loadActivities - Filters:", filters);
+
       const response = await activityService.getActivities(filters);
 
+      console.log("📥 loadActivities - Response:", response);
+      console.log("📊 loadActivities - Data count:", response.data?.length || 0);
+
       if (response.success && response.data) {
-        // Filtrer seulement les activités soumises pour la validation
-        const submittedActivities = response.data.filter(
+        console.log("✅ Activities received:", response.data.length);
+        console.log("📋 Sample activity:", response.data[0]);
+        
+        // Filtrer les activités pouvant être évaluées
+        // On inclut: submitted, evaluated, completed, in_progress
+        const evaluableActivities = response.data.filter(
           (activity: ServiceActivity) =>
-            activity.status === "submitted" || activity.status === "evaluated"
+            activity.status === "submitted" || 
+            activity.status === "evaluated" ||
+            activity.status === "completed" ||
+            activity.status === "in_progress"
         );
-        setActivities(submittedActivities);
+        
+        console.log("✅ Evaluable activities:", evaluableActivities.length);
+        console.log("📋 Filtered activities:", evaluableActivities);
+        
+        setActivities(evaluableActivities);
       } else {
+        console.error("❌ Error in response:", response.error);
         setError("Erreur lors du chargement des activités");
       }
     } catch (err) {
+      console.error("❌ Exception in loadActivities:", err);
       setError("Erreur de connexion au serveur");
-      console.error(err);
     } finally {
       setLoading(false);
     }
