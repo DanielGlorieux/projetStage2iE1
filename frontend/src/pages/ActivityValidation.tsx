@@ -1287,18 +1287,19 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
   };
 
   const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "SUBMITTED":
+    const statusLower = status?.toLowerCase() || "";
+    switch (statusLower) {
+      case "submitted":
         return "Soumise";
-      case "EVALUATED":
+      case "evaluated":
         return "Évaluée";
-      case "PLANNED":
+      case "planned":
         return "Planifiée";
-      case "IN_PROGRESS":
+      case "in_progress":
         return "En cours";
-      case "COMPLETED":
+      case "completed":
         return "Complétée";
-      case "CANCELLED":
+      case "cancelled":
         return "Annulée";
       default:
         return status;
@@ -1306,12 +1307,13 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
   };
 
   const getActivityTypeLabel = (type: string) => {
-    switch (type) {
-      case "ENTREPRENEURIAT":
+    const typeLower = type?.toLowerCase() || "";
+    switch (typeLower) {
+      case "entrepreneuriat":
         return "Entrepreneuriat";
-      case "LEADERSHIP":
+      case "leadership":
         return "Leadership";
-      case "DIGITAL":
+      case "digital":
         return "Digital";
       default:
         return type;
@@ -1320,7 +1322,9 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
 
   const getStatsForStatus = (status: string) => {
     if (!stats) return 0;
-    return stats.activities?.byStatus?.[status] || 0;
+    // Convertir en minuscules pour correspondre au format de la base
+    const statusKey = status.toLowerCase();
+    return stats.activities?.byStatus?.[statusKey] || 0;
   };
 
   if (userRole !== "supervisor" && userRole !== "led_team") {
@@ -1383,7 +1387,7 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
-              {getStatsForStatus("SUBMITTED")}
+              {getStatsForStatus("submitted")}
             </div>
             <p className="text-xs text-muted-foreground">activités à évaluer</p>
           </CardContent>
@@ -1396,7 +1400,7 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {getStatsForStatus("IN_PROGRESS")}
+              {getStatsForStatus("in_progress")}
             </div>
             <p className="text-xs text-muted-foreground">
               en cours de réalisation
@@ -1411,7 +1415,7 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {getStatsForStatus("EVALUATED")}
+              {getStatsForStatus("evaluated")}
             </div>
             <p className="text-xs text-muted-foreground">activités validées</p>
           </CardContent>
@@ -1449,8 +1453,10 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les statuts</SelectItem>
-            <SelectItem value="SUBMITTED">Soumises</SelectItem>
-            <SelectItem value="EVALUATED">Évaluées</SelectItem>
+            <SelectItem value="submitted">Soumises</SelectItem>
+            <SelectItem value="in_progress">En cours</SelectItem>
+            <SelectItem value="completed">Complétées</SelectItem>
+            <SelectItem value="evaluated">Évaluées</SelectItem>
           </SelectContent>
         </Select>
 
@@ -1460,9 +1466,9 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les types</SelectItem>
-            <SelectItem value="ENTREPRENEURIAT">Entrepreneuriat</SelectItem>
-            <SelectItem value="LEADERSHIP">Leadership</SelectItem>
-            <SelectItem value="DIGITAL">Digital</SelectItem>
+            <SelectItem value="entrepreneuriat">Entrepreneuriat</SelectItem>
+            <SelectItem value="leadership">Leadership</SelectItem>
+            <SelectItem value="digital">Digital</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1583,14 +1589,30 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
                         Détails
                       </Button>
 
-                      {activity.status === "SUBMITTED" && (
+                      {/* Bouton Évaluer pour les activités évaluables */}
+                      {(activity.status === "submitted" || 
+                        activity.status === "completed" ||
+                        activity.status === "in_progress") && (
                         <Button
                           size="sm"
                           onClick={() => handleEvaluate(activity)}
                           className="bg-blue-600 hover:bg-blue-700"
                         >
                           <Star className="w-3 h-3 mr-1" />
-                          Évaluer
+                          {activity.status === "in_progress" ? "Feedback" : "Évaluer"}
+                        </Button>
+                      )}
+                      
+                      {/* Bouton Voir l'évaluation pour les activités évaluées */}
+                      {activity.status === "evaluated" && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleViewDetails(activity)}
+                          className="bg-green-100 hover:bg-green-200 text-green-800"
+                        >
+                          <Award className="w-3 h-3 mr-1" />
+                          Voir Note
                         </Button>
                       )}
                     </div>

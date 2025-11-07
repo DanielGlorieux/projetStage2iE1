@@ -352,7 +352,7 @@ router.post(
       }
 
       const { id } = req.params;
-      const { score, feedback, status = "EVALUATED" } = req.body;
+      const { score, feedback, status = "evaluated" } = req.body;
 
       const activity = await prisma.activity.findUnique({
         where: { id },
@@ -369,7 +369,7 @@ router.post(
         });
       }
 
-      if (activity.status !== "SUBMITTED") {
+      if (activity.status !== "submitted") {
         return res.status(400).json({
           success: false,
           error: "Cette activité n'a pas encore été soumise",
@@ -675,7 +675,7 @@ router.put(
         });
       }
 
-      if (existingActivity.status === "EVALUATED") {
+      if (existingActivity.status === "evaluated") {
         return res.status(400).json({
           success: false,
           error: "Impossible de modifier une activité déjà évaluée",

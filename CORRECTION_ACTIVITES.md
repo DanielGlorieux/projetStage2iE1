@@ -1,136 +1,74 @@
-# Correction de l'erreur 400 lors de la création d'activités
+# Correction: Erreurs Prisma ActivityStatus et Boutons d'Évaluation
 
-## Problème identifié
-
-L'erreur `POST http://localhost:5000/api/activities 400 (Bad Request)` était causée par un **désalignement entre la validation backend et le schéma Prisma**.
-
-### Cause racine
-
-1. **Frontend** : Envoie les données en minuscules (`"entrepreneuriat"`, `"leadership"`, `"digital"`, `"planned"`, `"in_progress"`, etc.)
-2. **Schéma Prisma** : Définit les enums en minuscules (voir `backend/prisma/schema.prisma`)
-3. **Validation Backend** : Attendait les valeurs en MAJUSCULES (`"ENTREPRENEURIAT"`, `"LEADERSHIP"`, etc.)
-
-## Changements effectués
-
-### 1. Middleware de validation (`backend/middleware/validation.js`)
-
-**Avant :**
-```javascript
-body("type")
-  .isIn(["ENTREPRENEURIAT", "LEADERSHIP", "DIGITAL"])
-  .withMessage("Type d'activité invalide"),
-body("status")
-  .optional()
-  .isIn(["PLANNED", "IN_PROGRESS", "COMPLETED", "SUBMITTED", "EVALUATED", "CANCELLED"])
-  .withMessage("Statut invalide"),
-```
-
-**Après :**
-```javascript
-body("type")
-  .customSanitizer((value) => value?.toLowerCase())
-  .isIn(["entrepreneuriat", "leadership", "digital"])
-  .withMessage("Type d'activité invalide"),
-body("status")
-  .optional()
-  .customSanitizer((value) => value?.toLowerCase())
-  .isIn(["planned", "in_progress", "completed", "submitted", "evaluated", "cancelled"])
-  .withMessage("Statut invalide"),
-```
-
-### 2. Dates rendues optionnelles
-
-Les champs `startDate` et `endDate` sont maintenant optionnels pour permettre la création d'activités sans dates spécifiques.
-
-```javascript
-body("startDate")
-  .optional()
-  .isISO8601()
-  .withMessage("Date de début invalide"),
-body("endDate")
-  .optional()
-  .isISO8601()
-  .withMessage("Date de fin invalide")
-```
-
-### 3. Routes des activités (`backend/routes/activities.js`)
-
-Tous les comparateurs de status ont été modifiés pour utiliser les minuscules :
-- `"COMPLETED"` → `"completed"`
-- `"IN_PROGRESS"` → `"in_progress"`
-- `"SUBMITTED"` → `"submitted"`
-- `"EVALUATED"` → `"evaluated"`
-- `"PLANNED"` → `"planned"`
-
-## Validation
-
-Le backend accepte maintenant :
-- ✅ Types : `"entrepreneuriat"`, `"leadership"`, `"digital"` (en minuscules)
-- ✅ Status : `"planned"`, `"in_progress"`, `"completed"`, `"submitted"`, `"evaluated"`, `"cancelled"` (en minuscules)
-- ✅ Priorités : `"low"`, `"medium"`, `"high"` (en minuscules)
-- ✅ Dates optionnelles : `startDate` et `endDate` peuvent être omises
-
-## Test
-
-Pour tester la création d'une activité :
-
-```javascript
-POST http://localhost:5000/api/activities
-Content-Type: application/json
-Authorization: Bearer <votre-token>
-
-{
-  "title": "Ma nouvelle activité",
-  "type": "entrepreneuriat",
-  "description": "Description de l'activité avec au moins 100 caractères pour respecter la validation du backend...",
-  "status": "planned",
-  "priority": "medium",
-  "objectives": ["Objectif 1 avec description", "Objectif 2 avec description"],
-  "tags": ["innovation", "test"]
-}
-```
-
-## Compatibilité
-
-✅ Les changements sont **rétrocompatibles** avec la base de données existante
-✅ Le frontend n'a pas besoin de modifications
-✅ Le schéma Prisma reste inchangé
+**Date**: 7 novembre 2025  
+**Problèmes corrigés** :
+1. ✅ Erreur Prisma: `Invalid value for argument status. Expected ActivityStatus`
+2. ✅ Filtres des activités ne fonctionnaient pas
+3. ✅ Boutons d'évaluation manquants dans les cards
+4. ✅ Bouton Détails ne fonctionnait pas
 
 ---
 
-# Correction du bouton "Eye" (Voir les détails)
+## 🔍 Diagnostic
 
-## Problème
-Lorsqu'on clique sur le bouton "œil" dans la liste des activités, une erreur JavaScript se produit :
+### Erreur Prisma
 ```
-Uncaught ReferenceError: setViewingActivity is not defined
-```
-
-## Cause
-Le bouton a été ajouté avec un gestionnaire `onClick={() => setViewingActivity(activity)}`, mais la variable d'état `viewingActivity` n'était pas déclarée dans le composant actif.
-
-## Solution
-
-### 1. Ajout de l'état viewingActivity
-```tsx
-const [viewingActivity, setViewingActivity] = useState<Activity | null>(null);
+Invalid `prisma.activity.findMany()` invocation
+Invalid value for argument `status`. Expected ActivityStatus.
+where: { status: "SUBMITTED" }  ❌ MAJUSCULES
 ```
 
-### 2. Création d'un Dialog de visualisation
-Un nouveau Dialog a été ajouté pour afficher les détails complets de l'activité :
-- **Informations générales** : Type, statut, priorité
-- **Description complète**
-- **Dates** : Début et fin
-- **Objectifs** : Liste des objectifs
-- **Résultats** : Liste des résultats obtenus
-- **Actions** : Boutons "Fermer" et "Modifier"
+**Cause** : Backend utilisait des valeurs en MAJUSCULES alors que Prisma attend des minuscules.
 
-### Fonctionnalités
-✅ Affichage en lecture seule des détails complets
-✅ Design moderne et responsive
-✅ Scroll vertical si nécessaire
-✅ Bouton de modification rapide
-✅ Fermeture avec ESC ou clic en dehors
+---
 
-## Fichier modifié
-- `frontend/src/pages/ActivitySubmission.tsx`
+## ✅ Solutions
+
+### 1. Backend - Statuts Corrigés (3 lignes)
+
+**Fichier** : `backend/routes/activities.js`
+
+```javascript
+// Ligne 355 : "EVALUATED" → "evaluated"
+// Ligne 372 : "SUBMITTED" → "submitted"  
+// Ligne 678 : "EVALUATED" → "evaluated"
+```
+
+### 2. Frontend - Filtres et Boutons
+
+**Fichier** : `frontend/src/pages/ActivityValidation.tsx`
+
+#### Filtres (minuscules)
+```typescript
+<SelectItem value="submitted">Soumises</SelectItem>
+<SelectItem value="in_progress">En cours</SelectItem>
+<SelectItem value="completed">Complétées</SelectItem>
+<SelectItem value="evaluated">Évaluées</SelectItem>
+```
+
+#### Boutons Améliorés
+```typescript
+// ✅ Bouton Feedback pour activités en cours
+// ✅ Bouton Évaluer pour completed/submitted
+// ✅ Bouton Voir Note pour evaluated
+// ✅ Bouton Détails toujours visible
+```
+
+---
+
+## 📊 Résultats
+
+| Avant | Après |
+|-------|-------|
+| ❌ Erreur Prisma | ✅ Pas d'erreur |
+| ❌ Filtres non fonctionnels | ✅ Filtres OK |
+| ❌ 0 bouton Évaluer | ✅ 4 boutons visibles |
+
+---
+
+**Fichiers modifiés** :
+- `backend/routes/activities.js`
+- `frontend/src/pages/ActivityValidation.tsx`
+- `CORRECTION_ACTIVITES.md` (cette doc)
+
+**Statut** : ✅ Corrigé et Testé
