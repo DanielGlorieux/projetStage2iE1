@@ -63,23 +63,16 @@ export function ContactLED({ onBackToLogin }: ContactLEDProps) {
 
   const teamMembers = [
     {
-      name: "Dr. Kouakou KOFFI",
+      name: "M. Abdoul-Wahab ANNOU",
       role: "Directeur du Programme LED",
-      email: "directeur.led@2ie-edu.org",
+      email: "abdoul-wahab.annou@2ie-edu.org",
       phone: "+226 25 49 28 00",
       image: "/api/placeholder/150/150",
     },
     {
-      name: "Mme. Aminata TRAORE",
-      role: "Coordinatrice Pédagogique",
-      email: "coordinatrice.led@2ie-edu.org",
-      phone: "+226 25 49 28 01",
-      image: "/api/placeholder/150/150",
-    },
-    {
-      name: "M. Moussa SANGARE",
+      name: "M. Ephraïm SORGHO",
       role: "Responsable Technique",
-      email: "technique.led@2ie-edu.org",
+      email: "ephraim.sorgho@2ie-edu.org",
       phone: "+226 25 49 28 02",
       image: "/api/placeholder/150/150",
     },
@@ -96,22 +89,13 @@ export function ContactLED({ onBackToLogin }: ContactLEDProps) {
       type: "Campus principal",
     },
     {
-      city: "Lomé",
-      country: "Togo",
+      city: "Kamboinssin",
+      country: "Burkina Faso",
       address: "Boulevard du 13 Janvier",
-      postal: "BP 2972 Lomé",
-      phone: "+228 22 25 89 00",
-      email: "lome@2ie-edu.org",
+      postal: "01 BP 594 Ouagadougou 01",
+      phone: "+226 25 49 28 00",
+      email: "contact@2ie-edu.org",
       type: "Antenne",
-    },
-    {
-      city: "Casablanca",
-      country: "Maroc",
-      address: "Technopark, Route de Nouasseur",
-      postal: "20000 Casablanca",
-      phone: "+212 5 22 52 95 00",
-      email: "casablanca@2ie-edu.org",
-      type: "Bureau de liaison",
     },
   ];
 
@@ -141,7 +125,7 @@ export function ContactLED({ onBackToLogin }: ContactLEDProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      {/* ✅ Ajouter un header avec bouton de retour */}
+      {/*  Ajouter un header avec bouton de retour */}
       {onBackToLogin && (
         <div className="max-w-7xl mx-auto px-4 mb-6">
           <Button
@@ -347,7 +331,9 @@ export function ContactLED({ onBackToLogin }: ContactLEDProps) {
                   <Mail className="w-5 h-5 text-blue-600" />
                   <div>
                     <p className="font-medium">Email principal</p>
-                    <p className="text-sm text-gray-600">led@2ie-edu.org</p>
+                    <p className="text-sm text-gray-600">
+                      abdoul-wahab.annou@2ie-edu.org
+                    </p>
                   </div>
                 </div>
 
@@ -432,30 +418,39 @@ export function ContactLED({ onBackToLogin }: ContactLEDProps) {
                 <CardTitle>Liens utiles</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
-                  onClick={() => window.open('https://www.2ie-edu.org', '_blank')}
+                  onClick={() =>
+                    window.open("https://www.2ie-edu.org", "_blank")
+                  }
                   title="Visiter le site web de 2iE"
                 >
                   <Globe className="w-4 h-4 mr-2" />
                   Site web 2iE
                   <ExternalLink className="w-4 h-4 ml-auto" />
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
-                  onClick={() => window.open('https://calendly.com/led-2ie', '_blank')}
+                  onClick={() =>
+                    window.open("https://calendly.com/led-2ie", "_blank")
+                  }
                   title="Prendre un rendez-vous"
                 >
                   <Calendar className="w-4 h-4 mr-2" />
                   Prendre rendez-vous
                   <ExternalLink className="w-4 h-4 ml-auto" />
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full justify-start"
-                  onClick={() => window.open('https://maps.google.com/?q=2iE+Ouagadougou', '_blank')}
+                  onClick={() =>
+                    window.open(
+                      "https://maps.google.com/?q=2iE+Ouagadougou",
+                      "_blank",
+                    )
+                  }
                   title="Voir la localisation sur Google Maps"
                 >
                   <Building className="w-4 h-4 mr-2" />
@@ -475,7 +470,7 @@ export function ContactLED({ onBackToLogin }: ContactLEDProps) {
               Nos bureaux
             </CardTitle>
             <CardDescription>
-              Retrouvez-nous dans nos différents bureaux en Afrique
+              Retrouvez-nous dans nos différents bureaux au Burkina Faso
             </CardDescription>
           </CardHeader>
           <CardContent>

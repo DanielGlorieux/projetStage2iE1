@@ -181,6 +181,14 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
     setShowDetailsDialog(true);
   };
 
+  const handleDownloadDocument = async (documentUrl: string, filename: string) => {
+    const result = await activityService.downloadDocument(documentUrl, filename);
+    if (!result.success) {
+      setError(result.error || "Erreur lors du téléchargement");
+      setTimeout(() => setError(""), 5000);
+    }
+  };
+
   const handleSubmitEvaluation = async () => {
     if (!selectedActivity) return;
 
@@ -518,6 +526,16 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
                         {activity.description}
                       </p>
 
+                      {/* Indicateur de documents */}
+                      {activity.documents && activity.documents.length > 0 && (
+                        <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-md w-fit mb-3">
+                          <FileText className="w-3 h-3" />
+                          <span className="font-medium">
+                            {activity.documents.length} document{activity.documents.length > 1 ? 's' : ''} joint{activity.documents.length > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      )}
+
                       {activity.evaluations &&
                         activity.evaluations.length > 0 && (
                           <div className="bg-gradient-to-br from-green-50 to-blue-50 border-2 border-green-200 rounded-lg p-3 mb-3">
@@ -651,6 +669,84 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
             )}
 
             <div className="space-y-4">
+              {/* Documents justificatifs */}
+              {selectedActivity && 
+                selectedActivity.documents && 
+                selectedActivity.documents.length > 0 ? (
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <h4 className="font-semibold mb-3 text-sm flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Documents Justificatifs ({selectedActivity.documents.length})
+                  </h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {selectedActivity.documents.map((docUrl, index) => {
+                      const filename = docUrl.split("/").pop() || `document-${index + 1}`;
+                      const fileExtension = filename.split('.').pop()?.toLowerCase();
+                      const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension || '');
+                      const isPdf = fileExtension === 'pdf';
+                      const isDoc = ['doc', 'docx'].includes(fileExtension || '');
+                      
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-3 bg-white rounded border hover:border-blue-300 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {isImage && (
+                              <div className="w-10 h-10 bg-blue-100 rounded flex items-center justify-center flex-shrink-0">
+                                <FileText className="w-5 h-5 text-blue-600" />
+                              </div>
+                            )}
+                            {isPdf && (
+                              <div className="w-10 h-10 bg-red-100 rounded flex items-center justify-center flex-shrink-0">
+                                <FileText className="w-5 h-5 text-red-600" />
+                              </div>
+                            )}
+                            {isDoc && (
+                              <div className="w-10 h-10 bg-blue-100 rounded flex items-center justify-center flex-shrink-0">
+                                <FileText className="w-5 h-5 text-blue-600" />
+                              </div>
+                            )}
+                            {!isImage && !isPdf && !isDoc && (
+                              <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
+                                <FileText className="w-5 h-5 text-gray-600" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{filename}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {fileExtension?.toUpperCase()} • Cliquez pour télécharger
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadDocument(docUrl, filename)}
+                            className="flex-shrink-0 hover:bg-blue-50"
+                          >
+                            <Download className="w-4 h-4 text-blue-600" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3 pt-3 border-t">
+                    💡 Consultez les documents avant d'évaluer l'activité
+                  </p>
+                </div>
+              ) : selectedActivity && (
+                <div className="border border-dashed rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    <FileText className="w-5 h-5" />
+                    <div>
+                      <p className="text-sm font-medium">Aucun document justificatif</p>
+                      <p className="text-xs">L'étudiant n'a pas encore soumis de documents pour cette activité</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Échelle de notation de référence */}
               <div className="border rounded-lg p-4 bg-blue-50">
                 <h4 className="font-semibold mb-3 text-sm">
@@ -879,6 +975,66 @@ export function ActivityValidation({ userRole }: ActivityValidationProps) {
                     </ul>
                   </div>
                 )}
+
+              {/* Documents justificatifs */}
+              {selectedActivity.documents && 
+                selectedActivity.documents.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Documents Justificatifs ({selectedActivity.documents.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {selectedActivity.documents.map((docUrl, index) => {
+                      const filename = docUrl.split("/").pop() || `document-${index + 1}`;
+                      const fileExtension = filename.split('.').pop()?.toLowerCase();
+                      const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension || '');
+                      const isPdf = fileExtension === 'pdf';
+                      const isDoc = ['doc', 'docx'].includes(fileExtension || '');
+                      
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border hover:border-blue-300 hover:bg-blue-50 transition-all group"
+                        >
+                          {isImage && (
+                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200">
+                              <FileText className="w-6 h-6 text-blue-600" />
+                            </div>
+                          )}
+                          {isPdf && (
+                            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-red-200">
+                              <FileText className="w-6 h-6 text-red-600" />
+                            </div>
+                          )}
+                          {isDoc && (
+                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200">
+                              <FileText className="w-6 h-6 text-blue-600" />
+                            </div>
+                          )}
+                          {!isImage && !isPdf && !isDoc && (
+                            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-gray-200">
+                              <FileText className="w-6 h-6 text-gray-600" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{filename}</p>
+                            <p className="text-xs text-muted-foreground">{fileExtension?.toUpperCase()}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadDocument(docUrl, filename)}
+                            className="flex-shrink-0"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Évaluation */}
               {selectedActivity.evaluations &&

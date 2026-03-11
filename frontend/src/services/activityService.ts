@@ -156,7 +156,18 @@ export const activityService = {
 
   downloadDocument: async (documentUrl: string, filename: string) => {
     try {
-      const response = await fetch(documentUrl, {
+      // Construire l'URL complète du backend
+      const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const backendBaseUrl = baseUrl.replace('/api', ''); // Enlever /api pour accéder à /uploads
+      
+      // Si l'URL est déjà complète, l'utiliser telle quelle, sinon ajouter le baseUrl
+      const fullUrl = documentUrl.startsWith('http') 
+        ? documentUrl 
+        : `${backendBaseUrl}${documentUrl}`;
+      
+      console.log('Téléchargement du document:', fullUrl);
+      
+      const response = await fetch(fullUrl, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -174,8 +185,11 @@ export const activityService = {
         window.URL.revokeObjectURL(url);
         return { success: true };
       }
-      return { success: false, error: "Erreur de téléchargement" };
+      
+      console.error('Erreur de téléchargement:', response.status, response.statusText);
+      return { success: false, error: `Erreur ${response.status}: ${response.statusText}` };
     } catch (error) {
+      console.error('Exception lors du téléchargement:', error);
       return { success: false, error: "Erreur de téléchargement" };
     }
   },

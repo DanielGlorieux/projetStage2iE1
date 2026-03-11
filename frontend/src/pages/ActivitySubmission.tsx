@@ -3145,7 +3145,7 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
       )}
 
       {/* Dialog du formulaire - VERSION AMÉLIORÉE */}
-      <Dialog open={showForm} onOpenChange={() => !isLoading && resetForm()}>
+      <Dialog open={showForm} onOpenChange={() => !isLoading && resetForm()} modal={false}>
         <DialogContent className="max-w-6xl w-[95vw] max-h-[92vh] overflow-hidden flex flex-col p-0">
           {/* En-tête moderne avec dégradé sobre */}
           <div className="bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700 text-white px-6 py-5">
@@ -3305,7 +3305,7 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
 
                     <div>
                       <Label htmlFor="startDate">Date de début</Label>
-                      <Popover>
+                      <Popover modal={false}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
@@ -3338,7 +3338,7 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
 
                     <div>
                       <Label htmlFor="endDate">Date de fin</Label>
-                      <Popover>
+                      <Popover modal={false}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
@@ -3814,7 +3814,7 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
       </Dialog>
 
       {/* Dialog de visualisation des détails */}
-      <Dialog open={!!viewingActivity} onOpenChange={() => setViewingActivity(null)}>
+      <Dialog open={!!viewingActivity} onOpenChange={() => setViewingActivity(null)} modal={false}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl">{viewingActivity?.title}</DialogTitle>

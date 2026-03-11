@@ -39,8 +39,8 @@ app.use(limiter);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Servir les fichiers statiques
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+// Servir les fichiers statiques uploadés (avec authentification pour la sécurité)
+app.use("/uploads", authenticate, express.static(path.join(__dirname, "uploads")));
 
 // Routes API
 app.use("/api/auth", authRoutes);
@@ -49,8 +49,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/activities", authenticate, activityRoutes);
 app.use("/api/users", authenticate, userRoutes);
 app.use("/api/search", authenticate, searchRoutes);
-
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Route de health check
 app.get("/health", (req, res) => {

@@ -13,10 +13,17 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
+    // Décoder le nom de fichier pour gérer les caractères spéciaux
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    
     // Générer un nom unique pour le fichier
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const extension = path.extname(file.originalname);
-    cb(null, file.fieldname + "-" + uniqueSuffix + extension);
+    const extension = path.extname(originalName);
+    const baseName = path.basename(originalName, extension)
+      .replace(/[^a-zA-Z0-9_-]/g, '_') // Remplacer les caractères spéciaux
+      .substring(0, 50); // Limiter la longueur
+    
+    cb(null, `${baseName}-${uniqueSuffix}${extension}`);
   },
 });
 
