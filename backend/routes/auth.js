@@ -50,8 +50,12 @@ const registerValidation = [
     .isLength({ min: 2 })
     .withMessage("Le nom doit contenir au moins 2 caractères"),
   body("role")
-    .isIn(["STUDENT", "LED_TEAM", "SUPERVISOR"])
+    .isIn(["STUDENT", "LED_TEAM", "SUPERVISOR", "SUPER_ADMIN_ENTREPRENEURIAT", "SUPER_ADMIN_LEADERSHIP", "SUPER_ADMIN_DIGITAL"])
     .withMessage("Rôle invalide"),
+  body("specialization")
+    .optional()
+    .isIn(["entrepreneuriat", "leadership", "digital"])
+    .withMessage("Spécialisation invalide"),
 ];
 
 // Route de connexion
@@ -128,7 +132,7 @@ router.post("/register", registerValidation, async (req, res, next) => {
       });
     }
 
-    const { email, password, name, role } = req.body;
+    const { email, password, name, role, specialization } = req.body;
 
     // Extraire filière et niveau depuis l'email pour les étudiants
     let filiere = null;
@@ -142,6 +146,14 @@ router.post("/register", registerValidation, async (req, res, next) => {
       }
     }
 
+    // Vérifier que la spécialisation est fournie pour les super admins
+    if (role.startsWith("SUPER_ADMIN_") && !specialization) {
+      return res.status(400).json({
+        success: false,
+        error: "Spécialisation requise pour les super admins",
+      });
+    }
+
     // Hasher le mot de passe
     const hashedPassword = await bcrypt.hash(password, 12);
 
@@ -152,6 +164,7 @@ router.post("/register", registerValidation, async (req, res, next) => {
         password: hashedPassword,
         name,
         role,
+        specialization: specialization || null,
         filiere,
         niveau,
       },

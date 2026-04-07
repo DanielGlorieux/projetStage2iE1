@@ -11,6 +11,8 @@ const authRoutes = require("./routes/auth");
 const activityRoutes = require("./routes/activities");
 const userRoutes = require("./routes/users");
 const searchRoutes = require("./routes/search");
+const messagesRoutes = require("./routes/messages");
+const supervisorActivitiesRoutes = require("./routes/supervisor-activities");
 const { authenticate } = require("./middleware/auth");
 
 const app = express();
@@ -49,6 +51,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/activities", authenticate, activityRoutes);
 app.use("/api/users", authenticate, userRoutes);
 app.use("/api/search", authenticate, searchRoutes);
+app.use("/api/messages", authenticate, messagesRoutes);
+app.use("/api/supervisor-activities", authenticate, supervisorActivitiesRoutes);
 
 // Route de health check
 app.get("/health", (req, res) => {

@@ -158,11 +158,11 @@ router.post(
       };
 
       if (filters.nom) {
-        where.name = { contains: filters.nom };
+        where.name = { contains: filters.nom, mode: "insensitive" };
       }
 
       if (filters.email) {
-        where.email = { contains: filters.email };
+        where.email = { contains: filters.email, mode: "insensitive" };
       }
 
       if (filters.filiere && filters.filiere.length > 0) {
@@ -171,6 +171,23 @@ router.post(
 
       if (filters.niveau && filters.niveau.length > 0) {
         where.niveau = { in: filters.niveau };
+      }
+
+      // Condition pour filtrer par mots-clés ou compétences dans les activités
+      const activityConditions = {};
+
+      if (filters.keywords && filters.keywords.trim()) {
+        activityConditions.keywords = {
+          contains: filters.keywords.toLowerCase()
+        };
+      }
+
+      if (filters.typeActivite && filters.typeActivite.length > 0) {
+        activityConditions.type = { in: filters.typeActivite };
+      }
+
+      if (filters.statut && filters.statut.length > 0) {
+        activityConditions.status = { in: filters.statut };
       }
 
       console.log(
@@ -182,6 +199,7 @@ router.post(
         where,
         include: {
           activities: {
+            where: Object.keys(activityConditions).length > 0 ? activityConditions : undefined,
             include: {
               evaluations: true,
             },
@@ -191,53 +209,65 @@ router.post(
 
       console.log("Étudiants trouvés:", students.length);
 
-      const results = students.map((student) => {
-        const scores = {
-          entrepreneuriat: 0,
-          leadership: 0,
-          digital: 0,
-        };
+      const results = students
+        .map((student) => {
+          const scores = {
+            entrepreneuriat: 0,
+            leadership: 0,
+            digital: 0,
+          };
 
-        const counts = {
-          entrepreneuriat: 0,
-          leadership: 0,
-          digital: 0,
-        };
+          const counts = {
+            entrepreneuriat: 0,
+            leadership: 0,
+            digital: 0,
+          };
 
-        student.activities.forEach((activity) => {
-          if (activity.evaluations.length > 0) {
-            const type = activity.type.toLowerCase();
-            if (scores.hasOwnProperty(type)) {
-              scores[type] += activity.evaluations[0].score;
-              counts[type]++;
+          student.activities.forEach((activity) => {
+            if (activity.evaluations.length > 0) {
+              const type = activity.type.toLowerCase();
+              if (scores.hasOwnProperty(type)) {
+                scores[type] += activity.evaluations[0].score;
+                counts[type]++;
+              }
             }
-          }
-        });
+          });
 
-        Object.keys(scores).forEach((type) => {
-          if (counts[type] > 0) {
-            scores[type] = Math.round(scores[type] / counts[type]);
-          }
-        });
+          Object.keys(scores).forEach((type) => {
+            if (counts[type] > 0) {
+              scores[type] = Math.round(scores[type] / counts[type]);
+            }
+          });
 
-        return {
-          id: student.id,
-          nom: student.name,
-          email: student.email,
-          filiere: student.filiere || "",
-          niveau: student.niveau || "",
-          scoreGlobal: Math.round(
+          const scoreGlobal = Math.round(
             (scores.entrepreneuriat + scores.leadership + scores.digital) / 3
-          ),
-          statut: "actif",
-          dernierAcces: student.updatedAt,
-          activitesCompletes: student.activities.filter(
-            (a) => a.status === "evaluated"
-          ).length,
-          activitesTotal: student.activities.length,
-          competences: scores,
-        };
-      });
+          );
+
+          // Filtrer par score si spécifié
+          if (filters.scoreMin !== undefined && scoreGlobal < filters.scoreMin) {
+            return null;
+          }
+          if (filters.scoreMax !== undefined && scoreGlobal > filters.scoreMax) {
+            return null;
+          }
+
+          return {
+            id: student.id,
+            nom: student.name,
+            email: student.email,
+            filiere: student.filiere || "",
+            niveau: student.niveau || "",
+            scoreGlobal,
+            statut: "actif",
+            dernierAcces: student.updatedAt,
+            activitesCompletes: student.activities.filter(
+              (a) => a.status === "evaluated"
+            ).length,
+            activitesTotal: student.activities.length,
+            competences: scores,
+          };
+        })
+        .filter(result => result !== null);
 
       console.log("Résultats transformés:", results.length);
 

@@ -185,6 +185,18 @@ const authorize = (...roles) => {
     const normalizedRoles = roles.map((role) => role.toLowerCase());
     const userRole = req.user.role.toLowerCase();
 
+    // Gérer les super admins - ils ont accès à tout ce qu'un admin normal peut faire
+    // Plus un accès spécifique à leur domaine de spécialisation
+    const isSuperAdmin = userRole.startsWith('super_admin_');
+
+    // Si l'utilisateur est un super admin, vérifier s'il a les droits requis
+    if (isSuperAdmin) {
+      // Les super admins ont les mêmes droits que led_team
+      if (normalizedRoles.includes('led_team') || normalizedRoles.includes('supervisor')) {
+        return next();
+      }
+    }
+
     if (!normalizedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
@@ -197,7 +209,39 @@ const authorize = (...roles) => {
   };
 };
 
+// Middleware spécifique pour vérifier les droits de super admin sur un type d'activité
+const authorizeSuperAdminForType = (activityType) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: "Non authentifié",
+      });
+    }
+
+    const userRole = req.user.role.toLowerCase();
+
+    // LED team a tous les droits
+    if (userRole === 'led_team') {
+      return next();
+    }
+
+    // Vérifier si c'est un super admin avec la bonne spécialisation
+    const expectedRole = `super_admin_${activityType.toLowerCase()}`;
+    if (userRole === expectedRole) {
+      return next();
+    }
+
+    return res.status(403).json({
+      success: false,
+      error: "Accès refusé",
+      message: `Super admin ${activityType} requis pour cette action`,
+    });
+  };
+};
+
 module.exports = {
   authenticate,
   authorize,
+  authorizeSuperAdminForType,
 };
