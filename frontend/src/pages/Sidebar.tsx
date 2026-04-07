@@ -533,6 +533,13 @@ export function Sidebar({
           badge: null,
         },
         {
+          id: "supervisor-activities",
+          label: "Mes Activités",
+          icon: Briefcase,
+          description: "Créer et gérer mes activités",
+          badge: null,
+        },
+        {
           id: "activity-validation",
           label: "Évaluation Projets",
           icon: ClipboardCheck,
@@ -545,6 +552,13 @@ export function Sidebar({
           icon: Search,
           description: "Recherche et filtres",
           badge: null,
+        },
+        {
+          id: "chat",
+          label: "Messages",
+          icon: MessageCircle,
+          description: "Communications avec étudiants",
+          badge: unreadCount > 0 ? unreadCount.toString() : null,
         },
         {
           id: "reports",
@@ -852,7 +866,7 @@ export function Sidebar({
 
 /* Make it collapsable */
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { User, UserRole } from "../App";
 import { Button } from "../components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
@@ -860,6 +874,7 @@ import { Separator } from "../components/ui/separator";
 import { Badge } from "../components/ui/badge";
 import Logo2iE from "../components/image/Logo2iEBon.png";
 import { useMobile } from "../hooks/useMobile";
+import { messageService } from "../services/messageService";
 import {
   LayoutDashboard,
   Users,
@@ -886,6 +901,8 @@ import {
   Shield,
   Menu,
   X,
+  MessageCircle,
+  Briefcase,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -912,6 +929,26 @@ export function Sidebar({
   onClose,
 }: SidebarProps) {
   const isMobile = useMobile();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Load unread message count
+  useEffect(() => {
+    const loadUnreadCount = async () => {
+      try {
+        const response = await messageService.getUnreadCount();
+        if (response.success && response.data) {
+          setUnreadCount(response.data.count);
+        }
+      } catch (error) {
+        console.error("Error loading unread count:", error);
+      }
+    };
+
+    loadUnreadCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const getNavigationItems = (role: UserRole) => {
     const baseItems = [
@@ -940,6 +977,13 @@ export function Sidebar({
           icon: TrendingUp,
           description: "Évolution de mes compétences",
           badge: null,
+        },
+        {
+          id: "chat",
+          label: "Messages",
+          icon: MessageCircle,
+          description: "Discussions et communications",
+          badge: unreadCount > 0 ? unreadCount.toString() : null,
         },
         {
           id: "profile",
@@ -974,6 +1018,13 @@ export function Sidebar({
           icon: Search,
           description: "Filtrage multicritère",
           badge: null,
+        },
+        {
+          id: "chat",
+          label: "Messages",
+          icon: MessageCircle,
+          description: "Communications avec équipe",
+          badge: unreadCount > 0 ? unreadCount.toString() : null,
         },
         {
           id: "reports",
@@ -1017,6 +1068,13 @@ export function Sidebar({
           badge: null,
         },
         {
+          id: "supervisor-activities",
+          label: "Mes Activités",
+          icon: Briefcase,
+          description: "Créer et gérer mes activités",
+          badge: null,
+        },
+        {
           id: "activity-validation",
           label: "Évaluation Projets",
           icon: ClipboardCheck,
@@ -1029,6 +1087,13 @@ export function Sidebar({
           icon: Search,
           description: "Recherche et filtres",
           badge: null,
+        },
+        {
+          id: "chat",
+          label: "Messages",
+          icon: MessageCircle,
+          description: "Communications avec étudiants",
+          badge: unreadCount > 0 ? unreadCount.toString() : null,
         },
         {
           id: "reports",
