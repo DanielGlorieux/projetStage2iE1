@@ -8,52 +8,62 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      Role
-  filiere   String?
-  niveau    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  activities Activity[]
-  evaluations Evaluation[]
-  
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  password            String
+  name                String
+  role                Role
+  specialization      ActivityType? // Pour les super admins: leur domaine de spécialisation
+  filiere             String?
+  niveau              String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  activities          Activity[]
+  evaluations         Evaluation[]
+  createdActivities   Activity[] @relation("ActivityCreator")
+  sentMessages        Message[] @relation("MessageSender")
+  receivedMessages    Message[] @relation("MessageReceiver")
+
   @@map("users")
 }
 
 model Activity {
-  id              String   @id @default(uuid())
-  title           String
-  type            ActivityType
-  description     String
-  startDate       DateTime?
-  endDate         DateTime?
-  status          ActivityStatus @default(planned)      // ✅ Minuscules
-  progress        Int      @default(0)
-  priority        Priority @default(medium)             // ✅ Minuscules
-  estimatedHours  Int?
-  actualHours     Int?
-  collaborators   String   @default("[]") // JSON string
-  objectives      String   @default("[]") // JSON string
-  outcomes        String   @default("[]") // JSON string
-  challenges      String   @default("[]") // JSON string
-  learnings       String   @default("[]") // JSON string
-  tags            String   @default("[]") // JSON string
-  documents       String   @default("[]") // JSON string of file URLs
-  submittedAt     DateTime?
-  evaluatedAt     DateTime?
-  isLateSubmission Boolean @default(false)
-  reminderSent    Boolean @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  userId      String
-  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  evaluations Evaluation[]
-  
+  id                    String   @id @default(uuid())
+  title                 String
+  type                  ActivityType
+  description           String
+  startDate             DateTime?
+  endDate               DateTime?
+  deadline              DateTime? // Deadline pour les activités créées par superviseur
+  status                ActivityStatus @default(planned)
+  progress              Int      @default(0)
+  priority              Priority @default(medium)
+  estimatedHours        Int?
+  actualHours           Int?
+  collaborators         String   @default("[]") // JSON string
+  objectives            String   @default("[]") // JSON string
+  outcomes              String   @default("[]") // JSON string
+  challenges            String   @default("[]") // JSON string
+  learnings             String   @default("[]") // JSON string
+  tags                  String   @default("[]") // JSON string
+  keywords              String   @default("[]") // JSON string - mots-clés pour recherche
+  documents             String   @default("[]") // JSON string of file URLs
+  submittedAt           DateTime?
+  evaluatedAt           DateTime?
+  isLateSubmission      Boolean @default(false)
+  reminderSent          Boolean @default(false)
+  isSupervisorCreated   Boolean @default(false) // Indique si créée par superviseur
+  assignedStudents      String   @default("[]") // JSON string - IDs des étudiants assignés
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  userId                String
+  user                  User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creatorId             String? // ID du créateur (superviseur)
+  creator               User? @relation("ActivityCreator", fields: [creatorId], references: [id])
+  evaluations           Evaluation[]
+
   @@map("activities")
 }
 
@@ -77,6 +87,9 @@ enum Role {
   student
   led_team
   supervisor
+  super_admin_entrepreneuriat
+  super_admin_leadership
+  super_admin_digital
 }
 
 enum ActivityType {
@@ -98,4 +111,22 @@ enum Priority {
   low
   medium
   high
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  content     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  senderId    String
+  sender      User @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId  String
+  receiver    User @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
 }
