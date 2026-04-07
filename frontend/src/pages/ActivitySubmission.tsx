@@ -2433,6 +2433,7 @@ import {
 import { Separator } from "../components/ui/separator";
 import { Checkbox } from "../components/ui/checkbox";
 import { useRef } from "react";
+import { CongratulationsPopup } from "../components/CongratulationsPopup";
 import {
   Plus,
   Upload,
@@ -2489,6 +2490,12 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showCongratulations, setShowCongratulations] = useState(false);
+  const [congratsData, setCongratsData] = useState<{
+    title: string;
+    type: "entrepreneuriat" | "leadership" | "digital";
+    score?: number;
+  } | null>(null);
 
   // Gérer le focus quand le dialog s'ouvre
   useEffect(() => {
@@ -2809,6 +2816,16 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
             : "Activité soumise avec succès ! Votre progression LED a été mise à jour. 🚀"
         );
 
+        // Afficher le popup de félicitations si l'activité est complétée
+        if (!editingActivity && formData.status === "completed") {
+          setCongratsData({
+            title: formData.title,
+            type: formData.type as "entrepreneuriat" | "leadership" | "digital",
+            score: response.data.score,
+          });
+          setShowCongratulations(true);
+        }
+
         resetForm();
         refetch();
         setTimeout(() => setSuccess(""), 5000);
@@ -2957,6 +2974,20 @@ export function ActivitySubmission({ userRole }: ActivitySubmissionProps) {
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Congratulations Popup */}
+      {congratsData && (
+        <CongratulationsPopup
+          isOpen={showCongratulations}
+          onClose={() => {
+            setShowCongratulations(false);
+            setCongratsData(null);
+          }}
+          activityTitle={congratsData.title}
+          score={congratsData.score}
+          type={congratsData.type}
+        />
+      )}
+
       {/* Header avec boutons d'export */}
       <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
         <div className="space-y-2">
