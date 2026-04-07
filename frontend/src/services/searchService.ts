@@ -11,6 +11,7 @@ export interface SearchFilters {
   typeActivite?: string[];
   periodeDebut?: string;
   periodeFin?: string;
+  keywords?: string; // Nouveau: recherche par mots-clés
 }
 
 export interface StudentResult {
@@ -165,6 +166,7 @@ export interface SearchFilters {
   typeActivite?: string[];
   periodeDebut?: string;
   periodeFin?: string;
+  keywords?: string; // Nouveau: recherche par mots-clés
 }
 
 export interface StudentResult {
