@@ -53,8 +53,18 @@ import { UserGuide } from "./pages/UserGuide";
 import { ContactLED } from "./pages/ContactLED";
 import { StudentProgress } from "./pages/Progress";
 import { Deadlines } from "./pages/Deadlines";
+import { Chat } from "./pages/Chat";
+import { SupervisorActivityForm } from "./pages/SupervisorActivities";
+import { CongratulationsPopup } from "./components/CongratulationsPopup";
+import { Toaster } from "sonner";
 
-export type UserRole = "student" | "led_team" | "supervisor";
+export type UserRole =
+  | "student"
+  | "led_team"
+  | "supervisor"
+  | "super_admin_entrepreneuriat"
+  | "super_admin_leadership"
+  | "super_admin_digital";
 
 console.log("🚀 App.tsx loaded");
 
@@ -65,6 +75,7 @@ export interface User {
   email: string;
   filiere?: string;
   niveau?: string;
+  specialization?: "entrepreneuriat" | "leadership" | "digital";
 }
 
 export default function App() {
@@ -149,6 +160,10 @@ export default function App() {
         return <Deadlines />;
       case "activity-validation":
         return <ActivityValidation userRole={user.role} />;
+      case "chat":
+        return <Chat />;
+      case "supervisor-activities":
+        return <SupervisorActivityForm />;
       default:
         return <Dashboard userRole={user.role} />;
     }
@@ -249,8 +264,18 @@ import { UserGuide } from "./pages/UserGuide";
 import { ContactLED } from "./pages/ContactLED";
 import { StudentProgress } from "./pages/Progress";
 import { Deadlines } from "./pages/Deadlines";
+import { Chat } from "./pages/Chat";
+import { SupervisorActivityForm } from "./pages/SupervisorActivities";
+import { CongratulationsPopup } from "./components/CongratulationsPopup";
+import { Toaster } from "sonner";
 
-export type UserRole = "student" | "led_team" | "supervisor";
+export type UserRole =
+  | "student"
+  | "led_team"
+  | "supervisor"
+  | "super_admin_entrepreneuriat"
+  | "super_admin_leadership"
+  | "super_admin_digital";
 
 console.log("🚀 App.tsx loaded");
 
@@ -261,6 +286,7 @@ export interface User {
   email: string;
   filiere?: string;
   niveau?: string;
+  specialization?: "entrepreneuriat" | "leadership" | "digital";
 }
 
 export default function App() {
@@ -271,7 +297,13 @@ export default function App() {
   >("loading");
   const [user, setUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState("dashboard");
-  const [publicView, setPublicView] = useState<string | null>(null); // ✅ Nouvelle state pour les vues publiques
+  const [publicView, setPublicView] = useState<string | null>(null);
+  const [congratsData, setCongratsData] = useState<{
+    show: boolean;
+    activityTitle: string;
+    score?: number;
+    type: "entrepreneuriat" | "leadership" | "digital";
+  }>({ show: false, activityTitle: "", type: "entrepreneuriat" });
   const { isOpen, toggle, close, isMobile } = useSidebar();
 
   useEffect(() => {
@@ -358,6 +390,10 @@ export default function App() {
         return <Deadlines />;
       case "activity-validation":
         return <ActivityValidation userRole={user.role} />;
+      case "chat":
+        return <Chat />;
+      case "supervisor-activities":
+        return <SupervisorActivityForm />;
       default:
         return <Dashboard userRole={user.role} />;
     }
@@ -448,6 +484,18 @@ export default function App() {
           {renderCurrentView()}
         </main>
       </div>
+
+      {/* Congratulations Popup */}
+      <CongratulationsPopup
+        isOpen={congratsData.show}
+        onClose={() => setCongratsData({ ...congratsData, show: false })}
+        activityTitle={congratsData.activityTitle}
+        score={congratsData.score}
+        type={congratsData.type}
+      />
+
+      {/* Toast Notifications */}
+      <Toaster position="top-right" richColors />
     </div>
   );
 }
